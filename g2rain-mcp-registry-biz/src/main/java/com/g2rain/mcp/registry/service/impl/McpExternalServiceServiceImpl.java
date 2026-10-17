@@ -108,8 +108,7 @@ public class McpExternalServiceServiceImpl implements McpExternalServiceService 
             Asserts.isTrue(Objects.nonNull(existing), SystemErrorCode.DATA_NOT_EXISTS, id);
             Asserts.isTrue(Objects.equals(existing.getResourceType(), dto.getResourceType()),
                 SystemErrorCode.DATA_NOT_EXISTS, id);
-            // 更新：不允许改状态、编码、类型
-            entity.setStatus(null);
+            // 更新：不允许改编码、类型；status 不在 save DTO，启停走 updateStatus
             entity.setCode(null);
             entity.setResourceType(null);
             entity.setUpdateTime(Moments.now());

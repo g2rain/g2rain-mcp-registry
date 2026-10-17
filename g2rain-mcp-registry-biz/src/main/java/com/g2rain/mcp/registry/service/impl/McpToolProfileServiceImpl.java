@@ -89,9 +89,6 @@ public class McpToolProfileServiceImpl implements McpToolProfileService {
             if (Objects.isNull(dto.getOrganId())) {
                 dto.setOrganId(PrincipalContextHolder.getOrganId());
             }
-            if (Strings.isBlank(dto.getStatus())) {
-                dto.setStatus(ResourceStatus.ACTIVE.name());
-            }
         }
         Validations.validateSave(dto);
 
@@ -100,8 +97,9 @@ public class McpToolProfileServiceImpl implements McpToolProfileService {
 
         if (Objects.isNull(id) || id == 0) {
             mcpToolNameGuard.assertUnique(entity.getName(), entity.getResourceType(), entity.getOrganId(), null);
-            // 新增：使用IdGenerator生成主键
+            // 新增：使用IdGenerator生成主键；状态固定 ACTIVE（启停走 updateStatus）
             entity.setId(idGenerator.generateId());
+            entity.setStatus(ResourceStatus.ACTIVE.name());
             LocalDateTime now = Moments.now();
             entity.setUpdateTime(now);
             entity.setCreateTime(now);
@@ -117,7 +115,7 @@ public class McpToolProfileServiceImpl implements McpToolProfileService {
                 Long organId = Objects.nonNull(existing.getOrganId()) ? existing.getOrganId() : entity.getOrganId();
                 mcpToolNameGuard.assertUnique(entity.getName(), existing.getResourceType(), organId, id);
             }
-            // 更新：类型创建后不可变
+            // 更新：类型创建后不可变；status 不在 save DTO，启停走 updateStatus
             entity.setResourceType(null);
             entity.setUpdateTime(Moments.now());
             int success = mcpToolProfileDao.update(entity);

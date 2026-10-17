@@ -86,14 +86,6 @@ public class McpToolProfileDto extends BaseDto {
     private String path;
 
     /**
-     * 状态[ACTIVE:启用, INACTIVE:禁用]
-     */
-    @NotBlank(groups = CreateGroup.class)
-    @Size(max = 32)
-    @Schema(description = "状态[ACTIVE:启用, INACTIVE:禁用]（新增必填）", maxLength = 32)
-    private String status;
-
-    /**
      * Tool说明(给LLM)
      */
     @Size(max = 500)
