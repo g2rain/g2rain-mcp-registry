@@ -35,7 +35,7 @@ import java.util.Objects;
  * <ol>
  *   <li>校验 {@link McpRequestContext#callToolRequest()} 非空</li>
  *   <li>按 {@code name} 从 {@link ToolRegistry} 查找 Tool（含权限校验）</li>
- *   <li>找不到或无权限 → 抛出 {@link BusinessException}({@link McpErrorCode#UNKNOWN_TOOL})</li>
+ *   <li>找不到 → 抛出 {@link BusinessException}({@link McpErrorCode#UNKNOWN_TOOL})；内置工具无权限在查找时抛出未授权</li>
  *   <li>找到 → 执行注册阶段组装好的 {@code callHandler}, 得到 {@link McpSchema.CallToolResult}</li>
  * </ol>
  *
@@ -52,7 +52,7 @@ import java.util.Objects;
  * <ul>
  *   <li>Tool 存在且有权限 → 下游 HTTP 返回订单 JSON, 封装为 CallToolResult 给 LLM</li>
  *   <li>Tool 不存在 → {@link McpErrorCode#UNKNOWN_TOOL}</li>
- *   <li>Tool 存在但 sourceId 无权限 → 同样视为 unknown tool（不暴露「存在但无权」的信息）</li>
+ *   <li>内置工具无权限 → 未授权，不按未知工具吞掉</li>
  * </ul>
  *
  * @author alpha

@@ -4,6 +4,7 @@ import com.g2rain.common.model.PageData;
 import com.g2rain.common.model.PageSelectListDto;
 import com.g2rain.mcp.registry.dto.McpExternalServiceDto;
 import com.g2rain.mcp.registry.dto.McpExternalServiceSelectDto;
+import com.g2rain.mcp.registry.dto.UpdateStatusDto;
 import com.g2rain.mcp.registry.vo.McpExternalServiceVo;
 
 import java.util.List;
@@ -47,4 +48,13 @@ public interface McpExternalServiceService {
      * @return 操作结果（影响行数）
      */
     int delete(Long id);
+
+    /**
+     * 修改状态（仅允许改 status）。
+     *
+     * @param id  主键
+     * @param dto 目标状态
+     * @return 影响行数
+     */
+    int updateStatus(Long id, UpdateStatusDto dto);
 }

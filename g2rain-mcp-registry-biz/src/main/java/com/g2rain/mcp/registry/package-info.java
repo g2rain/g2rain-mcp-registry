@@ -20,13 +20,13 @@
  * OpenApiOperation
  *   -> ToolRegistry.register
  *   -> ToolRegistry.buildRegisteredTool
- *        -> NamingStrategy.name              // 生成 tool code, 如 get_g2rain_basis_users_id
+ *        -> NamingStrategy.name              // 生成 tool code, 如 get_self_g2rain_basis_users_id
  *        -> InputSchemaComposer.compose      // 生成 MCP inputSchema
  *        -> RegisteredTool                   // 元数据 + 末级执行函数
  *   -> ToolSpecBuilder.buildSyncToolSpec
  *        -> ToolCallFilterChains.of           // RegisteredTool + 横切 Filter 排序成链
  *   -> ResolvedTool
- *   -> ToolRegistry.put                      // 写入 byCode / bySourceId 索引
+ *   -> ToolRegistry.put                      // 写入 byCode 索引
  * }</pre>
  * <p>
  * 示例: profile 绑定 {@code sourceId=1001}（对应某个 resource_api）,
@@ -41,13 +41,11 @@
  *   -> McpRequestContexts.of(exchange)        // 组装 HTTP + 会话上下文
  *   -> McpToolListHandler.handle
  *   -> ToolRegistry.listTools
- *        -> resolvePermittedSourceIds          // 按当前用户权限过滤 sourceId
- *        -> bySourceId -> byCode -> ResolvedTool.toolSpec().tool()
+ *        -> byCode 中共享工具 + RuntimeToolCatalog 客户工具
  *   -> ListToolsResult                        // 返回 name / title / inputSchema 等
  * }</pre>
  * <p>
- * 示例: 用户 A 只能访问 sourceId 1001、1002, list 结果只包含这两个 API 对应的 Tool,
- * 不会看到无权访问的 Tool 元数据.
+ * 内置工具权限在 {@code tools/call} 时校验，list 不按 sourceId 过滤。
  * </p>
  *
  * <h3>三、{@code tools/call} 调用链路（客户端「执行某个 Tool」）</h3>

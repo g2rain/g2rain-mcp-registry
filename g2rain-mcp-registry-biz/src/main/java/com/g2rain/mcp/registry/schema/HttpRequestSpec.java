@@ -14,7 +14,7 @@ import java.util.Set;
  * 供 {@link com.g2rain.mcp.registry.tool.ToolHandler#execute} 消费.
  * <p>
  * 连接 MCP {@code tools/call} 参数与实际出站 HTTP 调用: parameters 按 OpenAPI {@code in}
- * 位置分组 (path / query / header), 可选的 requestBody 携带 JSON 载荷及 Content-Type 元数据.
+ * 位置分组 (path / query / header / cookie), 可选的 requestBody 携带 JSON 载荷及 Content-Type 元数据.
  * </p>
  *
  * <h2>生命周期</h2>
@@ -26,11 +26,11 @@ import java.util.Set;
  *
  * <h2>支持范围</h2>
  * <ul>
- *   <li>Parameters: path, query, header (见 {@link Parameters}).</li>
+ *   <li>Parameters: path, query, header, cookie (见 {@link Parameters}).</li>
  *   <li>RequestBody: 仅 {@link #SUPPORTED_MEDIA_TYPE} ({@code application/json}).</li>
  * </ul>
  *
- * @param parameters  按位置分组的 path / query / header 参数值
+ * @param parameters  按位置分组的 path / query / header / cookie 参数值
  * @param requestBody JSON 请求体及 media type 元数据; 无 body 时为 {@code null}
  * @author alpha
  * @see InputSchemaComposer
@@ -55,7 +55,8 @@ public record HttpRequestSpec(Parameters parameters, @Nullable Body requestBody)
     static final Set<String> SUPPORTED_PARAMETER_TYPES = Set.of(
         Parameters.QUERY,
         Parameters.PATH,
-        Parameters.HEADER
+        Parameters.HEADER,
+        Parameters.COOKIE
     );
 
     /**
@@ -77,7 +78,7 @@ public record HttpRequestSpec(Parameters parameters, @Nullable Body requestBody)
      * (如带 path/query 参数的 {@code GET} 请求).
      * </p>
      *
-     * @param parameters 按 path / query / header 分组的参数值
+     * @param parameters 按 path / query / header / cookie 分组的参数值
      * @return 仅 parameters 的 {@code HttpRequestSpec}
      */
     public static HttpRequestSpec withParameters(Parameters parameters) {
@@ -91,7 +92,7 @@ public record HttpRequestSpec(Parameters parameters, @Nullable Body requestBody)
      * 若 {@code content} 为 {@code null}, 等价于 {@link #withParameters(Parameters)}.
      * </p>
      *
-     * @param parameters 按 path / query / header 分组的参数值
+     * @param parameters 按 path / query / header / cookie 分组的参数值
      * @param content    MCP arguments 中的 body 原始内容; {@code null} 表示无 body
      * @return 组合型 {@code HttpRequestSpec}
      */
@@ -127,8 +128,10 @@ public record HttpRequestSpec(Parameters parameters, @Nullable Body requestBody)
      * @param path   path 参数 (如 {@code orderId -> "abc-123"})
      * @param query  query 参数 (如 {@code page -> 1})
      * @param header header 参数 (如 {@code X-Trace-Id -> "trace-001"})
+     * @param cookie cookie 参数 (如 {@code sessionToken -> "abc"})
      */
-    public record Parameters(Map<String, Object> path, Map<String, Object> query, Map<String, Object> header) {
+    public record Parameters(Map<String, Object> path, Map<String, Object> query, Map<String, Object> header,
+                             Map<String, Object> cookie) {
 
         /**
          * OpenAPI parameter 位置常量: {@code in: path}.
@@ -146,12 +149,17 @@ public record HttpRequestSpec(Parameters parameters, @Nullable Body requestBody)
         public static final String HEADER = "header";
 
         /**
-         * 返回空的 parameters 容器, 不含任何 path / query / header 条目.
+         * OpenAPI parameter 位置常量: {@code in: cookie}（OpenAPI 3.x）.
+         */
+        public static final String COOKIE = "cookie";
+
+        /**
+         * 返回空的 parameters 容器, 不含任何 path / query / header / cookie 条目.
          *
          * @return 空的 {@code Parameters}
          */
         public static Parameters empty() {
-            return new Parameters(Map.of(), Map.of(), Map.of());
+            return new Parameters(Map.of(), Map.of(), Map.of(), Map.of());
         }
     }
 

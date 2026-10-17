@@ -13,7 +13,7 @@ import com.g2rain.mcp.registry.utils.ToolNamingSupport;
  * <strong>实现类:</strong>
  * </p>
  * <ul>
- *   <li>{@link EndpointStrategy} — 按 HTTP method + contextPath + path 拼接</li>
+ *   <li>{@link EndpointStrategy} — 按 HTTP method + serviceSegment + contextPath + path 拼接</li>
  *   <li>{@link OperationIdStrategy} — 按 OpenAPI operationId 转 UPPER_SNAKE_CASE</li>
  * </ul>
  * <p>

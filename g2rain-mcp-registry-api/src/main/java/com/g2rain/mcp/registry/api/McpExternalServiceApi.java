@@ -22,22 +22,30 @@ import java.util.List;
 public interface McpExternalServiceApi {
 
     /**
-     * 根据条件查询列表
-     *
-     * @param selectDto 查询条件 DTO
-     * @return 数据列表
+     * 查询扩展系统列表（服务端写死 resourceType=EXTENSION）。
      */
-    @GetMapping("/list")
-    @Operation(summary = "查询 MCP 外部服务表列表", description = "根据查询条件返回 MCP 外部服务表列表")
-    Result<List<McpExternalServiceVo>> selectList(McpExternalServiceSelectDto selectDto);
+    @GetMapping("/extension/list")
+    @Operation(summary = "查询扩展系统列表", description = "resourceType 由服务端固定为 EXTENSION，客户端传值无效")
+    Result<List<McpExternalServiceVo>> selectExtensionList(McpExternalServiceSelectDto selectDto);
 
     /**
-     * 根据条件分页查询
-     *
-     * @param selectDto 查询条件DTO（包含分页参数）
-     * @return 分页数据
+     * 分页查询扩展系统（服务端写死 resourceType=EXTENSION）。
      */
-    @GetMapping("/page")
-    @Operation(summary = "分页查询 MCP 外部服务表列表", description = "分页查询 MCP 外部服务表列表")
-    Result<PageData<McpExternalServiceVo>> selectPage(PageSelectListDto<McpExternalServiceSelectDto> selectDto);
+    @GetMapping("/extension/page")
+    @Operation(summary = "分页查询扩展系统", description = "resourceType 由服务端固定为 EXTENSION，客户端传值无效")
+    Result<PageData<McpExternalServiceVo>> selectExtensionPage(PageSelectListDto<McpExternalServiceSelectDto> selectDto);
+
+    /**
+     * 查询客户系统列表（服务端写死 resourceType=CUSTOMER）。
+     */
+    @GetMapping("/customer/list")
+    @Operation(summary = "查询客户系统列表", description = "resourceType 由服务端固定为 CUSTOMER，客户端传值无效")
+    Result<List<McpExternalServiceVo>> selectCustomerList(McpExternalServiceSelectDto selectDto);
+
+    /**
+     * 分页查询客户系统（服务端写死 resourceType=CUSTOMER）。
+     */
+    @GetMapping("/customer/page")
+    @Operation(summary = "分页查询客户系统", description = "resourceType 由服务端固定为 CUSTOMER，客户端传值无效")
+    Result<PageData<McpExternalServiceVo>> selectCustomerPage(PageSelectListDto<McpExternalServiceSelectDto> selectDto);
 }

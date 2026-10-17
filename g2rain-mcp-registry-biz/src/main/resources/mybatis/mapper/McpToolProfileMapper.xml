@@ -429,4 +429,53 @@
     <select id="selectListWithoutIsolation" parameterType="com.g2rain.mcp.registry.dto.McpToolProfileSelectDto" resultMap="BaseResultMap">
         <include refid="selectListBody"/>
     </select>
+
+    <select id="countNameConflict" resultType="int">
+        SELECT COUNT(1)
+        FROM mcp_tool_profile
+        WHERE (delete_flag = 0 OR delete_flag IS NULL)
+          AND name = #{name, jdbcType=VARCHAR}
+          <if test="excludeId != null">
+              AND id != #{excludeId, jdbcType=BIGINT}
+          </if>
+          <choose>
+              <when test="resourceType == 'CUSTOMER'">
+                  AND (
+                      resource_type IN ('BUILT_IN', 'EXTENSION')
+                      OR (resource_type = 'CUSTOMER' AND organ_id = #{organId, jdbcType=BIGINT})
+                  )
+              </when>
+              <otherwise>
+                  <!-- 共享工具：与任意同名冲突（含各租户 CUSTOMER） -->
+              </otherwise>
+          </choose>
+    </select>
+
+    <select id="selectConflictNames" resultType="string">
+        SELECT name
+        FROM mcp_tool_profile
+        WHERE (delete_flag = 0 OR delete_flag IS NULL)
+          AND name IS NOT NULL
+          AND name != ''
+          <choose>
+              <when test="resourceType == 'CUSTOMER'">
+                  AND (
+                      resource_type IN ('BUILT_IN', 'EXTENSION')
+                      OR (resource_type = 'CUSTOMER' AND organ_id = #{organId, jdbcType=BIGINT})
+                  )
+              </when>
+              <otherwise>
+              </otherwise>
+          </choose>
+    </select>
+
+    <update id="deleteByServiceCodeAndOrganId">
+        UPDATE mcp_tool_profile
+        <set>
+            delete_flag = 1, version = version + 1
+        </set>
+        WHERE service_code = #{serviceCode, jdbcType=VARCHAR}
+          AND organ_id = #{organId, jdbcType=BIGINT}
+          AND (delete_flag = 0 OR delete_flag IS NULL)
+    </update>
 </mapper>

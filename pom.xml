@@ -21,6 +21,26 @@
         MCP tool registry and management center for Agent applications.
     </description>
 
+    <organization>
+        <name>G2rain</name>
+        <url>http://www.g2rain.com/</url>
+    </organization>
+
+    <developers>
+        <developer>
+            <name>Jagger</name>
+            <email>g2rain_developer@163.com</email>
+            <organization>G2rain</organization>
+            <organizationUrl>http://www.g2rain.com/</organizationUrl>
+        </developer>
+        <developer>
+            <id>alpha</id>
+            <name>Alpha</name>
+            <organization>G2rain</organization>
+            <organizationUrl>http://www.g2rain.com/</organizationUrl>
+        </developer>
+    </developers>
+
     <modules>
         <module>g2rain-mcp-registry-api</module>
         <module>g2rain-mcp-registry-biz</module>
@@ -44,10 +64,13 @@
         <g2rain.common.version>1.0.8</g2rain.common.version>
         <g2rain.aegis.core.version>1.0.5</g2rain.aegis.core.version>
         <g2rain.data.redis.version>1.0.5</g2rain.data.redis.version>
+        <g2rain.cache.sync.version>1.0.5</g2rain.cache.sync.version>
+        <g2rain.stream.redis.version>1.0.5</g2rain.stream.redis.version>
+        <g2rain.basis.api.version>1.0.0</g2rain.basis.api.version>
         <g2rain-starter-mybatis-extensions.version>1.0.5</g2rain-starter-mybatis-extensions.version>
         <g2rain.starter.spring.doc.version>1.0.5</g2rain.starter.spring.doc.version>
         <g2rain.crafter.version>1.0.8</g2rain.crafter.version>
-        <swagger-parser.version>2.1.42</swagger-parser.version>
+        <swagger-parser.version>2.1.47</swagger-parser.version>
         <jaxb-api.version>2.3.1</jaxb-api.version>
         <flatten.maven.plugin.version>1.7.3</flatten.maven.plugin.version>
         <jib.maven.plugin.version>3.5.1</jib.maven.plugin.version>
@@ -122,6 +145,21 @@
             </dependency>
             <dependency>
                 <groupId>com.g2rain</groupId>
+                <artifactId>g2rain-starter-cache-sync</artifactId>
+                <version>${g2rain.cache.sync.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.g2rain</groupId>
+                <artifactId>g2rain-starter-stream-redis</artifactId>
+                <version>${g2rain.stream.redis.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.g2rain</groupId>
+                <artifactId>g2rain-basis-api</artifactId>
+                <version>${g2rain.basis.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.g2rain</groupId>
                 <artifactId>g2rain-starter-mybatis-extensions</artifactId>
                 <version>${g2rain-starter-mybatis-extensions.version}</version>
             </dependency>
@@ -133,6 +171,12 @@
             <dependency>
                 <groupId>io.swagger.parser.v3</groupId>
                 <artifactId>swagger-parser-v3</artifactId>
+                <version>${swagger-parser.version}</version>
+            </dependency>
+            <!-- 伞包：Swagger 2.0 转 OpenAPI 3.0，再交给 swagger-parser-v3 -->
+            <dependency>
+                <groupId>io.swagger.parser.v3</groupId>
+                <artifactId>swagger-parser</artifactId>
                 <version>${swagger-parser.version}</version>
             </dependency>
             <!-- swagger-core clone/serialize 仍引用 javax XmlElement, JDK 11+ 需显式引入 -->

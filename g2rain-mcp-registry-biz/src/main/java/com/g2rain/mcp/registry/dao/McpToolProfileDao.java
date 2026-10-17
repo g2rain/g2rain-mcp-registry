@@ -5,6 +5,7 @@ import com.g2rain.data.isolation.annotations.IgnoreIsolation;
 import com.g2rain.mcp.registry.dao.po.McpToolProfilePo;
 import com.g2rain.mcp.registry.dto.McpToolProfileSelectDto;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -109,4 +110,39 @@ public interface McpToolProfileDao {
      */
     @IgnoreIsolation
     List<McpToolProfilePo> selectListWithoutIsolation(McpToolProfileSelectDto selectDto);
+
+    /**
+     * 名称冲突计数。
+     * <p>
+     * 共享工具（BUILT_IN / EXTENSION）：与任意未删除同名冲突。
+     * CUSTOMER：与共享工具及本机构 CUSTOMER 同名冲突。
+     * </p>
+     *
+     * @param name         工具名
+     * @param resourceType 待写入的资源类型
+     * @param organId      CUSTOMER 时本机构；共享类型可空
+     * @param excludeId    更新时排除自身，可空
+     */
+    @IgnoreIsolation
+    int countNameConflict(@Param("name") String name,
+                          @Param("resourceType") String resourceType,
+                          @Param("organId") Long organId,
+                          @Param("excludeId") Long excludeId);
+
+    /**
+     * 冲突范围内已占用的工具名（导入批量校验用）。
+     *
+     * @param resourceType 待写入的资源类型
+     * @param organId      CUSTOMER 时本机构
+     */
+    @IgnoreIsolation
+    List<String> selectConflictNames(@Param("resourceType") String resourceType,
+                                     @Param("organId") Long organId);
+
+    /**
+     * 按服务编码 + 机构软删工具（级联删外部服务用）。
+     */
+    @IgnoreIsolation
+    int deleteByServiceCodeAndOrganId(@Param("serviceCode") String serviceCode,
+                                      @Param("organId") Long organId);
 }
