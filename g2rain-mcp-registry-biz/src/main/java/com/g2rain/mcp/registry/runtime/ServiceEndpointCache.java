@@ -156,25 +156,30 @@ public class ServiceEndpointCache {
     }
 
     /**
-     * 调用基址。{@code endpoint} 是服务地址，{@code contextPath} 拼在后面。
+     * 调用基址。{@code endpoint} 是服务地址；{@code contextPath} 现网联调中暂不拼进调用 URL。
      *
      * @param endpoint    服务地址，如 {@code lb://g2rain-basis}
-     * @param contextPath 上下文路径，如 {@code /basis}
+     * @param contextPath 上下文路径，如 {@code /basis}（多来自 routePrefix；网关场景曾用于路由前缀）
      */
     public record Endpoint(String endpoint, String contextPath) {
 
         /**
          * 拼出 {@link com.g2rain.mcp.registry.tool.ToolHandler} 使用的基址。
-         * 处理器只拼接 {@code endpoint + path}，上下文路径必须先放进 endpoint。
+         * 处理器只拼接 {@code endpoint + path}。
          *
-         * @return 带上下文路径的调用基址
+         * @return 调用基址（当前仅为 endpoint）
          */
         public String callBase() {
-            if (Strings.isBlank(contextPath)) {
-                return endpoint;
-            }
-            String base = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
-            return base + contextPath;
+            // TODO(联调临时): contextPath 来自 routePrefix，原为走网关时拼到基址；
+            //  现网 MCP 调用改为 lb:// 直连服务，服务侧不再需要该前缀，故暂不拼接。
+            //  联调通过后按「网关 / lb」场景恢复或拆分策略，再决定是否拼 contextPath。
+            // 原逻辑保留如下，便于恢复：
+            // if (Strings.isBlank(contextPath)) {
+            //     return endpoint;
+            // }
+            // String base = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
+            // return base + contextPath;
+            return endpoint;
         }
     }
 
