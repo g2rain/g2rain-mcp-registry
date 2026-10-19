@@ -373,4 +373,22 @@
     <select id="selectListWithoutIsolation" parameterType="com.g2rain.mcp.registry.dto.McpExternalServiceSelectDto" resultMap="BaseResultMap">
         <include refid="selectListBody"/>
     </select>
+
+    <select id="countByCodeWithoutIsolation" resultType="int">
+        SELECT COUNT(1)
+        FROM mcp_external_service
+        WHERE (delete_flag = 0 OR delete_flag IS NULL)
+          AND code = #{code, jdbcType=VARCHAR}
+          <if test="resourceType != null and resourceType != ''">
+              AND resource_type = #{resourceType, jdbcType=VARCHAR}
+          </if>
+    </select>
+
+    <select id="countByOrganIdAndCode" resultType="int">
+        SELECT COUNT(1)
+        FROM mcp_external_service
+        WHERE (delete_flag = 0 OR delete_flag IS NULL)
+          AND organ_id = #{organId, jdbcType=BIGINT}
+          AND code = #{code, jdbcType=VARCHAR}
+    </select>
 </mapper>

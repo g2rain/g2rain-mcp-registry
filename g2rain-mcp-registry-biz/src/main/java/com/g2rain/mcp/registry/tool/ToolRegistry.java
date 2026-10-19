@@ -8,18 +8,22 @@ import com.g2rain.common.utils.Strings;
 import com.g2rain.mcp.registry.catalog.OpenApiOperation;
 import com.g2rain.mcp.registry.context.McpRequestContext;
 import com.g2rain.mcp.registry.enums.McpErrorCode;
+import com.g2rain.mcp.registry.enums.ResourceType;
 import com.g2rain.mcp.registry.openapi.naming.NamingStrategy;
+import com.g2rain.mcp.registry.perm.BuiltInApiPermission;
+import com.g2rain.mcp.registry.runtime.RuntimeToolCatalog;
 import com.g2rain.mcp.registry.schema.InputSchemaComposer;
 import com.g2rain.mcp.registry.tool.filter.RegisteredTool;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.swagger.v3.core.util.Json;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,8 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * MCP Tool 注册表, {@code tools/list} 与 {@code tools/call} 共用.
  * <p>
- * 内存缓存 {@link ResolvedTool}, 双索引:
- * {@code byCode} 供 call 定位; {@code bySourceId → code} 供 list 按权限 sourceId 集合过滤.
+ * 内存缓存 {@link ResolvedTool}，按 tool name（{@code byCode}）定位。
  * </p>
  *
  * @author alpha
@@ -40,28 +43,17 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 @NullMarked
+@RequiredArgsConstructor
 public class ToolRegistry {
 
     private final ConcurrentHashMap<String, ResolvedTool> byCode = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Long, String> bySourceId = new ConcurrentHashMap<>();
 
     private final InputSchemaComposer inputSchemaComposer;
     private final NamingStrategy namingStrategy;
     private final ToolHandler toolHandler;
     private final ToolSpecBuilder toolSpecBuilder;
-
-    public ToolRegistry(
-        InputSchemaComposer inputSchemaComposer,
-        NamingStrategy namingStrategy,
-        ToolHandler toolHandler,
-        ToolSpecBuilder toolSpecBuilder
-    ) {
-        this.inputSchemaComposer = inputSchemaComposer;
-        this.namingStrategy = namingStrategy;
-        this.toolHandler = toolHandler;
-        this.toolSpecBuilder = toolSpecBuilder;
-    }
-
+    private final RuntimeToolCatalog runtimeToolCatalog;
+    private final BuiltInApiPermission builtInApiPermission;
 
     /**
      * 写入或热更新一条 {@link ResolvedTool}.
@@ -70,13 +62,9 @@ public class ToolRegistry {
         byCode.values().stream()
             .filter(existing -> existing.profileId().equals(resolvedTool.profileId()))
             .findAny()
-            .ifPresent(existing -> {
-                byCode.remove(existing.code());
-                bySourceId.remove(existing.sourceId(), existing.code());
-            });
+            .ifPresent(existing -> byCode.remove(existing.code()));
 
         byCode.put(resolvedTool.code(), resolvedTool);
-        bySourceId.put(resolvedTool.sourceId(), resolvedTool.code());
 
         log.debug("put ResolvedTool, profileId={}, code={}, sourceId={}",
             resolvedTool.profileId(), resolvedTool.code(), resolvedTool.sourceId()
@@ -92,7 +80,6 @@ public class ToolRegistry {
             .findAny()
             .ifPresent(existing -> {
                 byCode.remove(existing.code());
-                bySourceId.remove(existing.sourceId(), existing.code());
                 log.debug("remove ResolvedTool, profileId={}, code={}",
                     profileId, existing.code()
                 );
@@ -100,64 +87,77 @@ public class ToolRegistry {
     }
 
     /**
-     * 返回当前请求可见的 {@code tools/list} 元数据.
+     * 返回 {@code tools/list}：内存中的共享工具（BUILT_IN + EXTENSION）+ 当前租户的客户工具。
+     * <p>
+     * 内置工具不在这里做权限过滤。权限在 {@code tools/call} 时校验。
+     * </p>
      */
     public List<McpSchema.Tool> listTools(McpRequestContext context, Set<String> allowlist) {
-        return resolvePermittedSourceIds(context).stream()
-            .map(bySourceId::get)
-            .filter(Objects::nonNull)
-            .map(byCode::get)
-            .filter(Objects::nonNull)
-            .map(ResolvedTool::toolSpec)
-            .map(McpServerFeatures.SyncToolSpecification::tool)
-            .filter(t -> allowlist.isEmpty() || allowlist.contains(t.name()))
-            .toList();
+        Map<String, McpSchema.Tool> tools = new LinkedHashMap<>();
+        for (ResolvedTool resolved : byCode.values()) {
+            McpSchema.Tool tool = resolved.toolSpec().tool();
+            if (allowlist.isEmpty() || allowlist.contains(tool.name())) {
+                tools.put(tool.name(), tool);
+            }
+        }
+        for (McpSchema.Tool tool : runtimeToolCatalog.list()) {
+            if (tools.containsKey(tool.name())) {
+                continue;
+            }
+            if (allowlist.isEmpty() || allowlist.contains(tool.name())) {
+                tools.put(tool.name(), tool);
+            }
+        }
+        log.debug("listTools sessionId={} size={}", context.sessionId(), tools.size());
+        return List.copyOf(tools.values());
     }
 
     /**
-     * 按 name 查找 {@link McpServerFeatures.SyncToolSpecification}, 同 SDK {@code this.tools.stream()} 语义.
+     * 按 name 查找可执行规格。
      * <p>
-     * 不存在或无权限时返回 {@link Optional#empty()}.
+     * 内存中的 BUILT_IN 无权限时抛出 {@link BusinessException}；EXTENSION 不鉴权。
+     * 未命中内存时再查当前机构 CUSTOMER。
      * </p>
      */
     public Optional<McpServerFeatures.SyncToolSpecification> findToolSpec(McpRequestContext context, String toolName) {
         var resolvedTool = byCode.get(toolName);
-        if (Objects.isNull(resolvedTool)) {
-            return Optional.empty();
+        if (Objects.nonNull(resolvedTool)) {
+            if (ResourceType.BUILT_IN.name().equals(resolvedTool.resourceType())) {
+                builtInApiPermission.check(resolvedTool.sourceId());
+                log.debug("findToolSpec built-in, sessionId={}, name={}", context.sessionId(), toolName);
+            } else {
+                log.debug("findToolSpec shared, sessionId={}, name={}, type={}",
+                    context.sessionId(), toolName, resolvedTool.resourceType());
+            }
+            return Optional.of(resolvedTool.toolSpec());
         }
-
-        if (!resolvePermittedSourceIds(context).contains(resolvedTool.sourceId())) {
-            return Optional.empty();
-        }
-
-        return Optional.of(resolvedTool.toolSpec());
-    }
-
-    private Collection<Long> resolvePermittedSourceIds(McpRequestContext context) {
-        // TODO: 从 context 解析登录身份, 查询权限范围内的 sourceId (resource_api.id)
-        log.debug("resolvePermittedSourceIds, sessionId={}", context.sessionId());
-        return bySourceId.keySet();
+        return runtimeToolCatalog.find(toolName);
     }
 
     /**
      * profile 加载 / 热更入口: OpenAPI operation → 注册进内存缓存.
-     * <p>
-     * {@code buildRegisteredTool → buildSyncToolSpec → ResolvedTool → put}.
-     * </p>
      */
-    public void register(Long profileId, String code, Long sourceId, OpenApiOperation operation) {
-        var registeredTool = buildRegisteredTool(operation);
+    public void register(Long profileId, String code, @Nullable Long sourceId, String resourceType,
+                         OpenApiOperation operation) {
+        var registeredTool = buildRegisteredTool(code, operation);
         var toolSpec = toolSpecBuilder.buildSyncToolSpec(registeredTool);
-        put(new ResolvedTool(profileId, code, sourceId, toolSpec));
+        put(new ResolvedTool(profileId, code, sourceId, resourceType, toolSpec));
     }
 
     /**
-     * 从 OpenAPI operation 构建 {@link RegisteredTool} (仅元数据 + 末级 handler, 不含 filter 链).
+     * 按指定工具名组装可执行规格，供客户工具在调用时现装。
      */
-    public RegisteredTool buildRegisteredTool(OpenApiOperation operation) {
-        var toolName = determineToolName(operation);
-        var tool = McpSchema.Tool.builder(toolName, resolveJsonSchema(operation))
-            .title(resolveTitle(operation, toolName))
+    public McpServerFeatures.SyncToolSpecification specification(String toolName, OpenApiOperation operation) {
+        return toolSpecBuilder.buildSyncToolSpec(buildRegisteredTool(toolName, operation));
+    }
+
+    /**
+     * {@code toolName} 有值时用档案里的名称；空白则按命名策略现算。
+     */
+    public RegisteredTool buildRegisteredTool(@Nullable String toolName, OpenApiOperation operation) {
+        var resolvedName = Strings.isNotBlank(toolName) ? toolName : determineToolName(operation);
+        var tool = McpSchema.Tool.builder(resolvedName, resolveJsonSchema(operation))
+            .title(resolveTitle(operation, resolvedName))
             .description(buildDescription(operation))
             .build();
 

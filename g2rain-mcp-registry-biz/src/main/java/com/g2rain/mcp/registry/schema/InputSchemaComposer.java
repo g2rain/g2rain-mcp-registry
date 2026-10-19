@@ -64,7 +64,7 @@ import static java.lang.Boolean.TRUE;
  *
  * <h2>支持范围与限制</h2>
  * <ul>
- *   <li>Parameters：{@link HttpRequestSpec#SUPPORTED_PARAMETER_TYPES} — path、query、header</li>
+ *   <li>Parameters：{@link HttpRequestSpec#SUPPORTED_PARAMETER_TYPES} — path、query、header、cookie</li>
  *   <li>RequestBody：仅 {@link HttpRequestSpec#SUPPORTED_MEDIA_TYPE}（{@code application/json}）</li>
  *   <li>非 object 或无 properties 的 body schema 会先被包装, 合并时再 {@link #unwrapIfNeeded} 还原</li>
  *   <li>修改 schema 描述时会 {@link #cloneSchema} 克隆, 避免污染原始 OpenAPI 模型</li>
@@ -282,10 +282,10 @@ public class InputSchemaComposer {
     }
 
     /**
-     * 将扁平参数 Map 按 OpenAPI parameter {@code in} 字段归类为 path / query / header。
+     * 将扁平参数 Map 按 OpenAPI parameter {@code in} 字段归类为 path / query / header / cookie。
      * <p>
      * 仅处理 Operation 中声明且在 {@code parameters} Map 中有值的参数；
-     * 未出现在 Map 中的参数视为未传；不支持的 {@code in} 类型（如 cookie、form）记录 warn 后跳过。
+     * 未出现在 Map 中的参数视为未传；不支持的 {@code in} 类型（如 form）记录 warn 后跳过。
      * </p>
      *
      * @param parameters 参数名 → 参数值；可为 {@code null} 或空 Map
@@ -304,6 +304,7 @@ public class InputSchemaComposer {
         var pathParameters = new HashMap<String, Object>();
         var queryParameters = new HashMap<String, Object>();
         var headerParameters = new HashMap<String, Object>();
+        var cookieParameters = new HashMap<String, Object>();
 
         operation.getParameters().forEach(parameter -> {
             var parameterName = parameter.getName();
@@ -319,6 +320,7 @@ public class InputSchemaComposer {
                 case Parameters.PATH -> pathParameters.put(parameterName, inputValue);
                 case Parameters.QUERY -> queryParameters.put(parameterName, inputValue);
                 case Parameters.HEADER -> headerParameters.put(parameterName, inputValue);
+                case Parameters.COOKIE -> cookieParameters.put(parameterName, inputValue);
                 default -> log.warn(
                     "Unsupported parameter type '{}' for parameter '{}'."
                         + " Skipping parameter decomposition.",
@@ -328,14 +330,14 @@ public class InputSchemaComposer {
             }
         });
 
-        return new Parameters(pathParameters, queryParameters, headerParameters);
+        return new Parameters(pathParameters, queryParameters, headerParameters, cookieParameters);
     }
 
     /**
      * 解析 Operation 中所有所支持 parameters 的 JSON Schema。
      * <p>
      * 遍历 {@link Operation#getParameters()}, 仅保留 {@link HttpRequestSpec#SUPPORTED_PARAMETER_TYPES}
-     * 中的类型（path / query / header）。若 parameter schema 无 description 而 parameter 本身有
+     * 中的类型（path / query / header / cookie）。若 parameter schema 无 description 而 parameter 本身有
      * description, 则克隆 schema 后补全描述, 避免修改原始 OpenAPI 模型。
      * </p>
      *
@@ -364,12 +366,12 @@ public class InputSchemaComposer {
      *     in: header
      *     required: false
      *     schema: { type: string }
-     *   - name: sessionToken          # cookie 类型, 不在 SUPPORTED_PARAMETER_TYPES 中
+     *   - name: sessionToken
      *     in: cookie
      *     schema: { type: string }
      * }</pre>
      *
-     * <p><strong>解析后</strong>（返回的 {@link ObjectSchema}, {@code sessionToken} 被跳过,
+     * <p><strong>解析后</strong>（返回的 {@link ObjectSchema},
      * {@code status} 的 description 从 parameter 层补入 schema）：</p>
      * <pre>{@code
      * {
@@ -391,6 +393,9 @@ public class InputSchemaComposer {
      *       "description": "订单状态筛选"
      *     },
      *     "X-Trace-Id": {
+     *       "type": "string"
+     *     },
+     *     "sessionToken": {
      *       "type": "string"
      *     }
      *   },
@@ -416,7 +421,7 @@ public class InputSchemaComposer {
             var parameterName = parameter.getName();
             var parameterIn = parameter.getIn();
 
-            // 仅处理 path / query / header
+            // 仅处理 path / query / header / cookie
             if (SUPPORTED_PARAMETER_TYPES.contains(parameterIn)) {
                 var originalSchema = parameter.getSchema();
                 if (Objects.isNull(originalSchema)) {

@@ -4,6 +4,7 @@ import com.g2rain.common.model.PageData;
 import com.g2rain.common.model.PageSelectListDto;
 import com.g2rain.mcp.registry.dto.McpToolProfileDto;
 import com.g2rain.mcp.registry.dto.McpToolProfileSelectDto;
+import com.g2rain.mcp.registry.dto.UpdateStatusDto;
 import com.g2rain.mcp.registry.vo.McpToolProfileVo;
 
 import java.util.List;
@@ -39,6 +40,15 @@ public interface McpToolProfileService {
      * @return 操作结果（影响行数）
      */
     Long save(McpToolProfileDto dto);
+
+    /**
+     * 只改启用状态。
+     *
+     * @param id  工具主键
+     * @param dto 目标状态，ACTIVE 或 INACTIVE
+     * @return 影响行数
+     */
+    int updateStatus(Long id, UpdateStatusDto dto);
 
     /**
      * 根据 ID 删除数据

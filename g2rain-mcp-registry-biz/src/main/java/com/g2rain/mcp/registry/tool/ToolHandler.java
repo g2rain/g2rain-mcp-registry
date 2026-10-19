@@ -312,6 +312,7 @@ public class ToolHandler {
         // ===================== 阶段 3: OpenAPI Header 参数 =====================
         // 来自 MCP arguments, 与 enricher 追加的横切 Header 互补 (如 Authorization 若 schema 里有)
         httpRequestSpec.parameters().header().forEach((header, headerValue) -> addHeaderParameter(spec, header, headerValue));
+        httpRequestSpec.parameters().cookie().forEach((cookie, cookieValue) -> addCookieParameter(spec, cookie, cookieValue));
 
         // ===================== 阶段 4: Enricher 链 + Accept =====================
         // PrincipalContextEnricher / UserAgentEnricher 等按 order 依次追加 Header
@@ -455,6 +456,32 @@ public class ToolHandler {
             }
 
             uriBuilder.queryParam(name, item.toString());
+        }
+    }
+
+    /**
+     * 向 RestClient 请求追加 cookie 参数.
+     * <p>
+     * 当前仅支持 OpenAPI 默认 style {@code form} 且 {@code explode=true}:
+     * 数组值展开为多个同名 cookie.
+     * </p>
+     *
+     * @param spec  RestClient 请求规格
+     * @param name  cookie 名
+     * @param value 单值或 {@link Iterable} 多值
+     */
+    private void addCookieParameter(RestClient.RequestHeadersSpec<?> spec, String name, Object value) {
+        if (!(value instanceof Iterable<?> items)) {
+            spec.cookie(name, value.toString());
+            return;
+        }
+
+        for (var item : items) {
+            if (Objects.isNull(item)) {
+                continue;
+            }
+
+            spec.cookie(name, item.toString());
         }
     }
 

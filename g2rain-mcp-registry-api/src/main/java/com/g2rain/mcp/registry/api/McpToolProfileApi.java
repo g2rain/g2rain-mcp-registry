@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.List;
 
-
 /**
  * MCP Tool暴露档案表API接口
  * 表名: mcp_tool_profile
@@ -21,23 +20,27 @@ import java.util.List;
 @Tag(name = "MCP Tool暴露档案表", description = "MCP Tool暴露档案表相关接口")
 public interface McpToolProfileApi {
 
-    /**
-     * 根据条件查询列表
-     *
-     * @param selectDto 查询条件 DTO
-     * @return 数据列表
-     */
-    @GetMapping("/list")
-    @Operation(summary = "查询MCP Tool暴露档案表列表", description = "根据查询条件返回MCP Tool暴露档案表列表")
-    Result<List<McpToolProfileVo>> selectList(McpToolProfileSelectDto selectDto);
+    @GetMapping("/built_in/list")
+    @Operation(summary = "查询自有系统工具列表", description = "resourceType 由服务端固定为 BUILT_IN")
+    Result<List<McpToolProfileVo>> selectBuiltInList(McpToolProfileSelectDto selectDto);
 
-    /**
-     * 根据条件分页查询
-     *
-     * @param selectDto 查询条件DTO（包含分页参数）
-     * @return 分页数据
-     */
-    @GetMapping("/page")
-    @Operation(summary = "分页查询MCP Tool暴露档案表列表", description = "分页查询MCP Tool暴露档案表列表")
-    Result<PageData<McpToolProfileVo>> selectPage(PageSelectListDto<McpToolProfileSelectDto> selectDto);
+    @GetMapping("/built_in/page")
+    @Operation(summary = "分页查询自有系统工具", description = "resourceType 由服务端固定为 BUILT_IN")
+    Result<PageData<McpToolProfileVo>> selectBuiltInPage(PageSelectListDto<McpToolProfileSelectDto> selectDto);
+
+    @GetMapping("/extension/list")
+    @Operation(summary = "查询扩展系统工具列表", description = "resourceType 由服务端固定为 EXTENSION")
+    Result<List<McpToolProfileVo>> selectExtensionList(McpToolProfileSelectDto selectDto);
+
+    @GetMapping("/extension/page")
+    @Operation(summary = "分页查询扩展系统工具", description = "resourceType 由服务端固定为 EXTENSION")
+    Result<PageData<McpToolProfileVo>> selectExtensionPage(PageSelectListDto<McpToolProfileSelectDto> selectDto);
+
+    @GetMapping("/customer/list")
+    @Operation(summary = "查询客户系统工具列表", description = "resourceType 由服务端固定为 CUSTOMER")
+    Result<List<McpToolProfileVo>> selectCustomerList(McpToolProfileSelectDto selectDto);
+
+    @GetMapping("/customer/page")
+    @Operation(summary = "分页查询客户系统工具", description = "resourceType 由服务端固定为 CUSTOMER")
+    Result<PageData<McpToolProfileVo>> selectCustomerPage(PageSelectListDto<McpToolProfileSelectDto> selectDto);
 }

@@ -12,6 +12,7 @@ import com.g2rain.mcp.registry.support.ProgressUpdateProvider;
 import com.g2rain.mcp.registry.support.metrics.NoOpMetricRecorder;
 import com.g2rain.mcp.registry.support.progress.DefaultProgressUpdateProvider;
 import com.g2rain.mcp.registry.tool.NotificationTicker;
+import com.g2rain.mcp.registry.tool.ToolCallInterceptor;
 import com.g2rain.mcp.registry.tool.ToolHandler;
 import com.g2rain.mcp.registry.tool.ToolRestClients;
 import org.springframework.beans.factory.annotation.Value;
@@ -110,9 +111,11 @@ public class McpRegistryConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(ToolRestClients.class)
-    ToolRestClients toolRestClients(@LoadBalanced RestClient.Builder lbRestClientBuilder, RestClientBuilderConfigurer configurer) {
-        RestClient lb = lbRestClientBuilder.build();
-        RestClient direct = configurer.configure(RestClient.builder()).build();
+    ToolRestClients toolRestClients(@LoadBalanced RestClient.Builder lbRestClientBuilder,
+                                    RestClientBuilderConfigurer configurer,
+                                    ToolCallInterceptor exchangeInterceptor) {
+        RestClient lb = lbRestClientBuilder.requestInterceptor(exchangeInterceptor).build();
+        RestClient direct = configurer.configure(RestClient.builder()).requestInterceptor(exchangeInterceptor).build();
         return new ToolRestClients(lb, direct);
     }
 
