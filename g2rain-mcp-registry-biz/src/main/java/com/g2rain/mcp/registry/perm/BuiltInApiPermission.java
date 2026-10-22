@@ -1,6 +1,8 @@
 package com.g2rain.mcp.registry.perm;
 
 
+
+import lombok.extern.slf4j.Slf4j;
 import com.g2rain.basis.enums.AuthorizationStatus;
 import com.g2rain.common.enums.SessionType;
 import com.g2rain.common.exception.BusinessException;
@@ -14,7 +16,7 @@ import java.util.Objects;
 /**
  * 内置工具调用前的接口权限校验。
  * <p>
- * 分支与网关 {@code ApiPermissionFilter} 一致：账号看共用权限，会员看机构权限，用户看应用下的授权状态。
+ * 分支与网关 {@code ApiPermissionFilter} 一致：账号看共用权限，会员和匿名访客看机构权限，用户看应用下的授权状态。
  * 扩展工具和客户工具不走这里。
  * </p>
  *
@@ -22,22 +24,28 @@ import java.util.Objects;
  * @since 2026/10/16
  */
 @Component
+@Slf4j
 public class BuiltInApiPermission {
 
     private final PassportApiPerm passportApiPerm;
 
     private final MemberApiPerm memberApiPerm;
 
+    private final AnonymousApiPerm anonymousApiPerm;
+
     private final UserApiPerm userApiPerm;
 
     /**
      * @param passportApiPerm 账号权限
      * @param memberApiPerm   会员权限
+     * @param anonymousApiPerm 匿名访客权限
      * @param userApiPerm     用户权限
      */
-    public BuiltInApiPermission(PassportApiPerm passportApiPerm, MemberApiPerm memberApiPerm, UserApiPerm userApiPerm) {
+    public BuiltInApiPermission(PassportApiPerm passportApiPerm, MemberApiPerm memberApiPerm,
+                                AnonymousApiPerm anonymousApiPerm, UserApiPerm userApiPerm) {
         this.passportApiPerm = passportApiPerm;
         this.memberApiPerm = memberApiPerm;
+        this.anonymousApiPerm = anonymousApiPerm;
         this.userApiPerm = userApiPerm;
     }
 
@@ -72,7 +80,24 @@ public class BuiltInApiPermission {
             } catch (BusinessException ex) {
                 throw ex;
             } catch (RuntimeException ex) {
+                log.error("failed to check", ex);
                 throw new BusinessException(SystemErrorCode.SYSTEM_INTERNAL_ERROR, "member permission");
+            }
+            throw new BusinessException(SystemErrorCode.UNAUTHORIZED, PrincipalContextHolder.getApplicationId());
+        }
+        if (SessionType.isAnonymous(sessionType)) {
+            if (!validAnonymous()) {
+                throw new BusinessException(SystemErrorCode.UNAUTHENTICATED, "ANONYMOUS");
+            }
+            try {
+                if (anonymousApiPerm.hasApiPermission(PrincipalContextHolder.getOrganId(), apiId)) {
+                    return;
+                }
+            } catch (BusinessException ex) {
+                throw ex;
+            } catch (RuntimeException ex) {
+                log.error("failed to check", ex);
+                throw new BusinessException(SystemErrorCode.SYSTEM_INTERNAL_ERROR, "anonymous permission");
             }
             throw new BusinessException(SystemErrorCode.UNAUTHORIZED, PrincipalContextHolder.getApplicationId());
         }
@@ -86,6 +111,18 @@ public class BuiltInApiPermission {
             return;
         }
         throw new BusinessException(SystemErrorCode.UNAUTHORIZED, PrincipalContextHolder.getApplicationId());
+    }
+
+    /**
+     * 访客：机构与访客 ID（userId）为正，无账号与会员主体。
+     */
+    private static boolean validAnonymous() {
+        Long organId = PrincipalContextHolder.getOrganId();
+        Long userId = PrincipalContextHolder.getUserId();
+        return Objects.nonNull(organId) && organId > 0
+            && Objects.nonNull(userId) && userId > 0
+            && Objects.isNull(PrincipalContextHolder.getPassportId())
+            && Objects.isNull(PrincipalContextHolder.getMemberId());
     }
 
     private static boolean validMember() {

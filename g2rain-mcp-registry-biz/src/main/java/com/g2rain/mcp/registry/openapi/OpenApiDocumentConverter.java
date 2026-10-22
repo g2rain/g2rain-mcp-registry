@@ -1,6 +1,8 @@
 package com.g2rain.mcp.registry.openapi;
 
 
+
+import lombok.extern.slf4j.Slf4j;
 import com.g2rain.common.exception.BusinessException;
 import com.g2rain.common.exception.SystemErrorCode;
 import com.g2rain.common.json.JsonCodec;
@@ -63,6 +65,7 @@ import java.util.Objects;
  * @since 2026/10/16
  */
 @Component
+@Slf4j
 public class OpenApiDocumentConverter {
 
     private static final JsonCodec CODEC = JsonCodecFactory.instance();
@@ -185,6 +188,7 @@ public class OpenApiDocumentConverter {
         try {
             json = Json.mapper().writeValueAsString(openAPI);
         } catch (Exception exception) {
+            log.error("failed to resolve", exception);
             throw new BusinessException(SystemErrorCode.PARAM_VAL_INVALID, "document");
         }
 
@@ -258,6 +262,7 @@ public class OpenApiDocumentConverter {
         try {
             toolName = namingStrategy.name(catalog);
         } catch (BusinessException exception) {
+            log.error("failed to convert operation", exception);
             return failed(httpMethod, path, name, operation.getDescription(), exception.getMessage());
         }
 
@@ -271,6 +276,7 @@ public class OpenApiDocumentConverter {
             return new ConvertedOperation(httpMethod, path, name, operation.getDescription(), toolName,
                 inputSchema, operationJson, null);
         } catch (Exception exception) {
+            log.error("failed to convert operation", exception);
             return failed(httpMethod, path, name, operation.getDescription(), exception.getMessage());
         }
     }

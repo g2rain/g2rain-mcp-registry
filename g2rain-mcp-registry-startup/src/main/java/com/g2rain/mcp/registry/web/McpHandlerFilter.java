@@ -26,11 +26,13 @@ import java.util.Objects;
  *     <li>通过校验时透传请求至下游 Handler。</li>
  * </ul>
  *
- * <p><b>认证策略（满足任一即视为已认证）：</b></p>
+ * <p><b>认证策略（会话类型对应的主体 ID 齐全才视为已认证）：</b></p>
  * <ul>
- *     <li>用户会话（{@link SessionType#isUser}）且 {@link PrincipalContextHolder#getUserId()} 非空。</li>
- *     <li>通行证会话（{@link SessionType#isPassport}）且 {@link PrincipalContextHolder#getPassportId()} 非空。</li>
- *     <li>匿名会话（{@link SessionType#isAnonymous}）：允许无登录访问。</li>
+ *     <li>用户会话（{@link SessionType#USER}）且 {@link PrincipalContextHolder#getUserId()} 为正。</li>
+ *     <li>通行证会话（{@link SessionType#PASSPORT}）且 {@link PrincipalContextHolder#getPassportId()} 为正。</li>
+ *     <li>会员会话（{@link SessionType#MEMBER}）且 {@link PrincipalContextHolder#getMemberId()} 为正。</li>
+ *     <li>匿名会话（{@link SessionType#ANONYMOUS}）：机构与访客 ID（userId）为正，且无账号、会员主体；
+ *     能调用哪些工具由 ANONYMOUS 控制单元决定。</li>
  * </ul>
  *
  * <p>本 Filter 由 {@link com.g2rain.mcp.registry.config.McpWebConfiguration} 注册，
@@ -105,32 +107,33 @@ public class McpHandlerFilter implements HandlerFilterFunction<ServerResponse, S
     }
 
     /**
-     * 判断当前线程是否具备访问 MCP 端点的有效登录上下文。
+     * 判断当前线程是否具备访问 MCP 端点的有效登录上下文：会话类型对应的主体 ID 须为正。
      *
      * <p><b>判定逻辑：</b></p>
      * <ol>
-     *     <li>用户会话 + 有效 userId → 已认证；</li>
-     *     <li>通行证会话 + 有效 passportId → 已认证；</li>
-     *     <li>匿名会话 → 已认证（允许匿名访问）；</li>
-     *     <li>其他情况（如会话类型未知且缺少 Principal）→ 未认证。</li>
+     *     <li>用户会话：userId 为正；</li>
+     *     <li>通行证会话：passportId 为正；</li>
+     *     <li>会员会话：memberId 为正；</li>
+     *     <li>匿名会话：organId 与访客 ID（userId）为正，且无账号、会员主体；</li>
+     *     <li>其他情况 → 未认证。</li>
      * </ol>
      *
      * @return {@code true} 表示已通过认证校验，可继续处理 MCP 请求
      */
     private boolean isAuthenticated() {
-        // 从 ThreadLocal 获取当前请求的会话类型
-        SessionType sessionType = PrincipalContextHolder.getSessionType();
-        // 用户登录：需同时满足会话类型为 USER 且 userId 非空
-        if (SessionType.isUser(sessionType) && Objects.nonNull(PrincipalContextHolder.getUserId())) {
-            return true;
-        }
+        return switch (PrincipalContextHolder.getSessionType()) {
+            case USER -> isPositive(PrincipalContextHolder.getUserId());
+            case PASSPORT -> isPositive(PrincipalContextHolder.getPassportId());
+            case MEMBER -> isPositive(PrincipalContextHolder.getMemberId());
+            case ANONYMOUS -> isPositive(PrincipalContextHolder.getOrganId())
+                && isPositive(PrincipalContextHolder.getUserId())
+                && Objects.isNull(PrincipalContextHolder.getPassportId())
+                && Objects.isNull(PrincipalContextHolder.getMemberId());
+            case null -> false;
+        };
+    }
 
-        // 通行证登录：需同时满足会话类型为 PASSPORT 且 passportId 非空
-        if (SessionType.isPassport(sessionType) && Objects.nonNull(PrincipalContextHolder.getPassportId())) {
-            return true;
-        }
-
-        // 匿名会话允许访问 MCP（如公开工具调用场景）
-        return SessionType.isAnonymous(sessionType);
+    private static boolean isPositive(Long id) {
+        return Objects.nonNull(id) && id > 0L;
     }
 }
