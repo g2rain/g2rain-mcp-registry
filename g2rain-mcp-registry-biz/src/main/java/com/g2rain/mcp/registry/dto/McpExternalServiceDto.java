@@ -32,14 +32,6 @@ public class McpExternalServiceDto extends BaseDto {
     private Long organId;
 
     /**
-     * 服务编码
-     */
-    @NotBlank(groups = CreateGroup.class)
-    @Size(max = 64)
-    @Schema(description = "服务编码（新增必填）", maxLength = 64)
-    private String code;
-
-    /**
      * 服务名称
      */
     @NotBlank(groups = CreateGroup.class)
@@ -48,27 +40,19 @@ public class McpExternalServiceDto extends BaseDto {
     private String name;
 
     /**
-     * 调用基址(http/https)
+     * 调用基址(http/https，含上下文路径)
      */
     @NotBlank(groups = CreateGroup.class)
     @Size(max = 512)
-    @Schema(description = "调用基址(http/https)（新增必填）", maxLength = 512)
+    @Schema(description = "调用基址(http/https，含上下文路径)（新增必填）", maxLength = 512)
     private String endpoint;
 
     /**
-     * 上下文路径
-     */
-    @NotBlank(groups = CreateGroup.class)
-    @Size(max = 128)
-    @Schema(description = "上下文路径（新增必填）", maxLength = 128)
-    private String contextPath;
-
-    /**
-     * 资源类型[EXTENSION:扩展系统, CUSTOMER:客户系统]
+     * 资源类型[EXTENSION:扩展系统, CUSTOMER:租户系统]
      */
     @NotBlank(groups = CreateGroup.class)
     @Size(max = 32)
-    @Schema(description = "资源类型[EXTENSION:扩展系统, CUSTOMER:客户系统]（新增必填）", maxLength = 32)
+    @Schema(description = "资源类型[EXTENSION:扩展系统, CUSTOMER:租户系统]（新增必填）", maxLength = 32)
     private String resourceType;
 
     /**

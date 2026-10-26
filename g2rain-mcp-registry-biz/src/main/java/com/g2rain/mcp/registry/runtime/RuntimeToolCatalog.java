@@ -17,6 +17,7 @@ import com.g2rain.mcp.registry.tool.ToolRegistry;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +30,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * 客户（CUSTOMER）工具的运行时目录：按当前登录机构查库组装。
+ * 租户（CUSTOMER）工具的运行时目录：按当前登录机构查库组装，服务按外部服务主键（{@code service_id}）匹配。
  * <p>
  * 扩展工具已由 {@link ExtensionToolLoader} 装入内存，不走这里。
  * </p>
@@ -58,7 +59,7 @@ public class RuntimeToolCatalog {
     }
 
     /**
-     * 列出当前机构启用的客户工具。
+     * 列出当前机构启用的租户工具。
      */
     public List<McpSchema.Tool> list() {
         Long organId = PrincipalContextHolder.getOrganId();
@@ -66,19 +67,20 @@ public class RuntimeToolCatalog {
             return List.of();
         }
         List<McpSchema.Tool> tools = new ArrayList<>();
-        Map<String, McpExternalServicePo> services = loadServiceMap(organId);
+        Map<Long, McpExternalServicePo> services = loadServiceMap(organId);
         for (McpToolProfilePo profile : listProfiles(organId, null)) {
             OpenApiOperation operation = operation(profile, services);
             if (Objects.isNull(operation) || Strings.isBlank(profile.getName())) {
                 continue;
             }
-            tools.add(toolRegistry.getObject().specification(profile.getName(), operation).tool());
+            tools.add(toolRegistry.getObject().specification(profile.getName(), profile.getResourceType(), operation,
+                profile.getInputSchema()).tool());
         }
         return tools;
     }
 
     /**
-     * 按名称查找当前机构的客户工具。
+     * 按名称查找当前机构的租户工具。
      */
     public Optional<McpServerFeatures.SyncToolSpecification> find(String toolName) {
         if (Strings.isBlank(toolName)) {
@@ -96,34 +98,32 @@ public class RuntimeToolCatalog {
         if (Objects.isNull(operation)) {
             return Optional.empty();
         }
-        return Optional.of(toolRegistry.getObject().specification(profile.getName(), operation));
+        return Optional.of(toolRegistry.getObject().specification(profile.getName(), profile.getResourceType(), operation,
+                profile.getInputSchema()));
     }
 
-    private OpenApiOperation operation(McpToolProfilePo profile, Map<String, McpExternalServicePo> services) {
-        if (Strings.isBlank(profile.getServiceCode())) {
-            log.warn("工具缺少外部服务地址 name={} serviceCode={}", profile.getName(), profile.getServiceCode());
-            return null;
-        }
-        McpExternalServicePo service = services.get(profile.getServiceCode());
+    private @Nullable OpenApiOperation operation(McpToolProfilePo profile, Map<Long, McpExternalServicePo> services) {
+        McpExternalServicePo service = Objects.isNull(profile.getServiceId()) ? null : services.get(profile.getServiceId());
         if (Objects.isNull(service) || Strings.isBlank(service.getEndpoint())) {
-            log.warn("工具缺少外部服务地址 name={} serviceCode={}", profile.getName(), profile.getServiceCode());
+            log.warn("工具缺少外部服务地址 name={} serviceId={}", profile.getName(), profile.getServiceId());
             return null;
         }
-        return assembler.assemble(profile, service.getEndpoint(), service.getContextPath());
+
+        return assembler.assemble(profile, service.getEndpoint());
     }
 
-    private Map<String, McpExternalServicePo> loadServiceMap(Long organId) {
+    private Map<Long, McpExternalServicePo> loadServiceMap(Long organId) {
         McpExternalServiceSelectDto select = new McpExternalServiceSelectDto();
         select.setResourceType(ResourceType.CUSTOMER.name());
         select.setStatus(ResourceStatus.ACTIVE.name());
         select.setOrganId(organId);
-        List<McpExternalServicePo> services = externalServiceDao.selectList(select);
+        List<McpExternalServicePo> services = externalServiceDao.selectListWithoutIsolation(select);
         if (Collections.isEmpty(services)) {
             return Map.of();
         }
+
         return services.stream()
-            .filter(service -> Strings.isNotBlank(service.getCode()))
-            .collect(Collectors.toMap(McpExternalServicePo::getCode, service -> service, (a, b) -> a, HashMap::new));
+            .collect(Collectors.toMap(McpExternalServicePo::getId, service -> service, (a, b) -> a, HashMap::new));
     }
 
     private List<McpToolProfilePo> listProfiles(Long organId, String toolName) {
@@ -134,7 +134,7 @@ public class RuntimeToolCatalog {
         if (Strings.isNotBlank(toolName)) {
             select.setName(toolName);
         }
-        List<McpToolProfilePo> profiles = toolProfileDao.selectList(select);
+        List<McpToolProfilePo> profiles = toolProfileDao.selectListWithoutIsolation(select);
         return Collections.isEmpty(profiles) ? List.of() : profiles;
     }
 

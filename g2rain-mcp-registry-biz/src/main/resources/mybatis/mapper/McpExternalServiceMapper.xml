@@ -12,10 +12,8 @@
         <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
         <!-- 业务字段（其他自定义字段） -->
         <result column="organ_id" property="organId" jdbcType="BIGINT"/>
-        <result column="code" property="code" jdbcType="VARCHAR"/>
         <result column="name" property="name" jdbcType="VARCHAR"/>
         <result column="endpoint" property="endpoint" jdbcType="VARCHAR"/>
-        <result column="context_path" property="contextPath" jdbcType="VARCHAR"/>
         <result column="resource_type" property="resourceType" jdbcType="VARCHAR"/>
         <result column="status" property="status" jdbcType="VARCHAR"/>
         <result column="description" property="description" jdbcType="VARCHAR"/>
@@ -54,20 +52,12 @@
                         organ_id
                         <include refid="directionClause"/>
                     </when>
-                    <when test="item.column == 'code'">
-                        code
-                        <include refid="directionClause"/>
-                    </when>
                     <when test="item.column == 'name'">
                         name
                         <include refid="directionClause"/>
                     </when>
                     <when test="item.column == 'endpoint'">
                         endpoint
-                        <include refid="directionClause"/>
-                    </when>
-                    <when test="item.column == 'contextPath'">
-                        context_path
                         <include refid="directionClause"/>
                     </when>
                     <when test="item.column == 'resourceType'">
@@ -95,7 +85,7 @@
         <!-- 基础字段 -->
         create_time, update_time,
         <!-- 业务字段 -->
-        organ_id, code, name, endpoint, context_path, resource_type, status, description,
+        organ_id, name, endpoint, resource_type, status, description,
         <!-- deleteFlag字段（如果存在） -->
         delete_flag,
         <!-- version字段（如果存在） -->
@@ -106,7 +96,7 @@
         <!-- 基础字段值 -->
         #{createTime, jdbcType=TIMESTAMP}, #{updateTime, jdbcType=TIMESTAMP},
         <!-- 业务字段值 -->
-        #{organId, jdbcType=BIGINT}, #{code, jdbcType=VARCHAR}, #{name, jdbcType=VARCHAR}, #{endpoint, jdbcType=VARCHAR}, #{contextPath, jdbcType=VARCHAR}, #{resourceType, jdbcType=VARCHAR}, #{status, jdbcType=VARCHAR}, #{description, jdbcType=VARCHAR},
+        #{organId, jdbcType=BIGINT}, #{name, jdbcType=VARCHAR}, #{endpoint, jdbcType=VARCHAR}, #{resourceType, jdbcType=VARCHAR}, #{status, jdbcType=VARCHAR}, #{description, jdbcType=VARCHAR},
         <!-- deleteFlag字段值（如果存在，设置默认值为0） -->
         0,
         <!-- version字段值（如果存在，设置默认值为0） -->
@@ -126,17 +116,11 @@
             <if test="organId != null">
                 organ_id = #{organId, jdbcType=BIGINT},
             </if>
-            <if test="code != null">
-                code = #{code, jdbcType=VARCHAR},
-            </if>
             <if test="name != null">
                 name = #{name, jdbcType=VARCHAR},
             </if>
             <if test="endpoint != null">
                 endpoint = #{endpoint, jdbcType=VARCHAR},
-            </if>
-            <if test="contextPath != null">
-                context_path = #{contextPath, jdbcType=VARCHAR},
             </if>
             <if test="resourceType != null">
                 resource_type = #{resourceType, jdbcType=VARCHAR},
@@ -161,7 +145,7 @@
         <!-- 基础字段 -->
         create_time, update_time,
         <!-- 业务字段 -->
-        organ_id, code, name, endpoint, context_path, resource_type, status, description,
+        organ_id, name, endpoint, resource_type, status, description,
         <!-- deleteFlag字段（如果存在） -->
         delete_flag,
         <!-- version字段（如果存在） -->
@@ -180,7 +164,7 @@
         <!-- 基础字段 -->
         create_time, update_time,
         <!-- 业务字段 -->
-        organ_id, code, name, endpoint, context_path, resource_type, status, description,
+        organ_id, name, endpoint, resource_type, status, description,
         <!-- deleteFlag字段（如果存在） -->
         delete_flag,
         <!-- version字段（如果存在） -->
@@ -226,17 +210,11 @@
             <if test="organId != null">
                 AND organ_id = #{organId, jdbcType=BIGINT}
             </if>
-            <if test="code != null">
-                AND code = #{code, jdbcType=VARCHAR}
-            </if>
             <if test="name != null">
                 AND name = #{name, jdbcType=VARCHAR}
             </if>
             <if test="endpoint != null">
                 AND endpoint = #{endpoint, jdbcType=VARCHAR}
-            </if>
-            <if test="contextPath != null">
-                AND context_path = #{contextPath, jdbcType=VARCHAR}
             </if>
             <if test="resourceType != null">
                 AND resource_type = #{resourceType, jdbcType=VARCHAR}
@@ -266,7 +244,7 @@
         <!-- 基础字段 -->
         create_time, update_time,
         <!-- 业务字段 -->
-        organ_id, code, name, endpoint, context_path, resource_type, status, description,
+        organ_id, name, endpoint, resource_type, status, description,
         <!-- deleteFlag字段（如果存在） -->
         delete_flag,
         <!-- version字段（如果存在） -->
@@ -279,7 +257,7 @@
             <!-- 基础字段值 -->
             #{item.createTime, jdbcType=TIMESTAMP}, #{item.updateTime, jdbcType=TIMESTAMP},
             <!-- 业务字段值 -->
-            #{item.organId, jdbcType=BIGINT}, #{item.code, jdbcType=VARCHAR}, #{item.name, jdbcType=VARCHAR}, #{item.endpoint, jdbcType=VARCHAR}, #{item.contextPath, jdbcType=VARCHAR}, #{item.resourceType, jdbcType=VARCHAR}, #{item.status, jdbcType=VARCHAR}, #{item.description, jdbcType=VARCHAR},
+            #{item.organId, jdbcType=BIGINT}, #{item.name, jdbcType=VARCHAR}, #{item.endpoint, jdbcType=VARCHAR}, #{item.resourceType, jdbcType=VARCHAR}, #{item.status, jdbcType=VARCHAR}, #{item.description, jdbcType=VARCHAR},
             <!-- deleteFlag字段值（如果存在，设置默认值为0） -->
             0,
             <!-- version字段值（如果存在，设置默认值为0） -->
@@ -305,17 +283,11 @@
             <if test="organId != null">
                 organ_id = #{organId, jdbcType=BIGINT},
             </if>
-            <if test="code != null">
-                code = #{code, jdbcType=VARCHAR},
-            </if>
             <if test="name != null">
                 name = #{name, jdbcType=VARCHAR},
             </if>
             <if test="endpoint != null">
                 endpoint = #{endpoint, jdbcType=VARCHAR},
-            </if>
-            <if test="contextPath != null">
-                context_path = #{contextPath, jdbcType=VARCHAR},
             </if>
             <if test="resourceType != null">
                 resource_type = #{resourceType, jdbcType=VARCHAR},
@@ -372,23 +344,5 @@
     <!-- 根据 SelectDto 条件查询列表（忽略数据隔离） -->
     <select id="selectListWithoutIsolation" parameterType="com.g2rain.mcp.registry.dto.McpExternalServiceSelectDto" resultMap="BaseResultMap">
         <include refid="selectListBody"/>
-    </select>
-
-    <select id="countByCodeWithoutIsolation" resultType="int">
-        SELECT COUNT(1)
-        FROM mcp_external_service
-        WHERE (delete_flag = 0 OR delete_flag IS NULL)
-          AND code = #{code, jdbcType=VARCHAR}
-          <if test="resourceType != null and resourceType != ''">
-              AND resource_type = #{resourceType, jdbcType=VARCHAR}
-          </if>
-    </select>
-
-    <select id="countByOrganIdAndCode" resultType="int">
-        SELECT COUNT(1)
-        FROM mcp_external_service
-        WHERE (delete_flag = 0 OR delete_flag IS NULL)
-          AND organ_id = #{organId, jdbcType=BIGINT}
-          AND code = #{code, jdbcType=VARCHAR}
     </select>
 </mapper>

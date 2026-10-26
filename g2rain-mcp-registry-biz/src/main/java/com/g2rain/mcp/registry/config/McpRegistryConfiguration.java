@@ -5,8 +5,6 @@ import com.g2rain.mcp.registry.enricher.HttpRequestEnricherChain;
 import com.g2rain.mcp.registry.error.DefaultErrorModelProvider;
 import com.g2rain.mcp.registry.error.ErrorModelProvider;
 import com.g2rain.mcp.registry.error.ErrorModelWriter;
-import com.g2rain.mcp.registry.openapi.naming.EndpointStrategy;
-import com.g2rain.mcp.registry.openapi.naming.NamingStrategy;
 import com.g2rain.mcp.registry.support.MetricRecorder;
 import com.g2rain.mcp.registry.support.ProgressUpdateProvider;
 import com.g2rain.mcp.registry.support.metrics.NoOpMetricRecorder;
@@ -33,7 +31,6 @@ import org.springframework.web.client.RestClient;
  * <h2>默认 Bean 一览</h2>
  * <ul>
  *   <li>{@link ErrorModelProvider} — 下游 HTTP 网络失败时的错误 JSON 结构（默认 {@link DefaultErrorModelProvider}）</li>
- *   <li>{@link NamingStrategy} — OpenAPI 操作 → MCP tool code 的命名规则（默认 {@link EndpointStrategy}）</li>
  *   <li>{@link MetricRecorder} — tool/HTTP 调用计数与耗时（默认 {@link NoOpMetricRecorder}, 不输出指标）</li>
  *   <li>{@link ProgressUpdateProvider} — 长耗时 call 的 MCP 进度通知文案（默认 {@link DefaultProgressUpdateProvider}）</li>
  *   <li>{@link ToolRestClients} — {@code tools/call} 出站 HTTP（{@code lb://} 负载均衡 + {@code http(s)://} 直连）</li>
@@ -64,15 +61,6 @@ public class McpRegistryConfiguration {
     @ConditionalOnMissingBean(ErrorModelProvider.class)
     ErrorModelProvider<?> errorModelProvider() {
         return new DefaultErrorModelProvider();
-    }
-
-    /**
-     * 默认 tool 命名策略: 按 {@code method + contextPath + path} 生成小写下划线 code.
-     */
-    @Bean
-    @ConditionalOnMissingBean(NamingStrategy.class)
-    NamingStrategy namingStrategy() {
-        return new EndpointStrategy();
     }
 
     /**

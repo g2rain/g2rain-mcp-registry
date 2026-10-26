@@ -4,9 +4,10 @@ import com.g2rain.common.model.PageData;
 import com.g2rain.common.model.PageSelectListDto;
 import com.g2rain.common.model.Result;
 import com.g2rain.mcp.registry.api.McpToolProfileApi;
-import com.g2rain.mcp.registry.dto.BuiltInSyncDto;
+import com.g2rain.mcp.registry.dto.McpToolOptionSelectDto;
 import com.g2rain.mcp.registry.dto.McpToolProfileDto;
 import com.g2rain.mcp.registry.dto.McpToolProfileSelectDto;
+import com.g2rain.mcp.registry.dto.NativeSyncDto;
 import com.g2rain.mcp.registry.dto.OpenApiConfirmDto;
 import com.g2rain.mcp.registry.dto.OpenApiPreviewDto;
 import com.g2rain.mcp.registry.dto.UpdateStatusDto;
@@ -15,6 +16,8 @@ import com.g2rain.mcp.registry.openapi.ConvertedOperation;
 import com.g2rain.mcp.registry.service.McpToolProfileService;
 import com.g2rain.mcp.registry.service.impl.McpToolImportServiceImpl;
 import com.g2rain.mcp.registry.vo.McpToolImportResultVo;
+import com.g2rain.mcp.registry.vo.McpToolMetaVo;
+import com.g2rain.mcp.registry.vo.McpToolOptionVo;
 import com.g2rain.mcp.registry.vo.McpToolProfileVo;
 import com.g2rain.web.interceptors.annotations.IdentityInject;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,14 +50,14 @@ public class McpToolProfileController implements McpToolProfileApi {
     private McpToolImportServiceImpl mcpToolImportService;
 
     @Override
-    public Result<List<McpToolProfileVo>> selectBuiltInList(McpToolProfileSelectDto selectDto) {
-        selectDto.setResourceType(ResourceType.BUILT_IN.name());
+    public Result<List<McpToolProfileVo>> selectNativeList(McpToolProfileSelectDto selectDto) {
+        selectDto.setResourceType(ResourceType.NATIVE.name());
         return Result.success(mcpToolProfileService.selectList(selectDto));
     }
 
     @Override
-    public Result<PageData<McpToolProfileVo>> selectBuiltInPage(PageSelectListDto<McpToolProfileSelectDto> selectDto) {
-        selectDto.getQuery().setResourceType(ResourceType.BUILT_IN.name());
+    public Result<PageData<McpToolProfileVo>> selectNativePage(PageSelectListDto<McpToolProfileSelectDto> selectDto) {
+        selectDto.getQuery().setResourceType(ResourceType.NATIVE.name());
         return Result.successPage(mcpToolProfileService.selectPage(selectDto));
     }
 
@@ -82,17 +85,9 @@ public class McpToolProfileController implements McpToolProfileApi {
         return Result.successPage(mcpToolProfileService.selectPage(selectDto));
     }
 
-    @PostMapping("/built_in/save")
-    @IdentityInject(organIdPropertyName = "organId")
-    @Operation(summary = "新增或更新自有系统工具", description = "resourceType 由服务端固定为 BUILT_IN")
-    public Result<Long> saveBuiltIn(@RequestBody McpToolProfileDto dto) {
-        dto.setResourceType(ResourceType.BUILT_IN.name());
-        return Result.success(mcpToolProfileService.save(dto));
-    }
-
     @PostMapping("/extension/save")
     @IdentityInject(organIdPropertyName = "organId")
-    @Operation(summary = "新增或更新扩展系统工具", description = "resourceType 由服务端固定为 EXTENSION")
+    @Operation(summary = "更新扩展系统工具", description = "只改标题、说明、OpenAPI 文档与 inputSchema；工具由导入生成，不支持单条新增")
     public Result<Long> saveExtension(@RequestBody McpToolProfileDto dto) {
         dto.setResourceType(ResourceType.EXTENSION.name());
         return Result.success(mcpToolProfileService.save(dto));
@@ -100,7 +95,7 @@ public class McpToolProfileController implements McpToolProfileApi {
 
     @PostMapping("/customer/save")
     @IdentityInject(organIdPropertyName = "organId")
-    @Operation(summary = "新增或更新客户系统工具", description = "resourceType 由服务端固定为 CUSTOMER")
+    @Operation(summary = "更新租户系统工具", description = "只改标题、说明、OpenAPI 文档与 inputSchema；工具由导入生成，不支持单条新增")
     public Result<Long> saveCustomer(@RequestBody McpToolProfileDto dto) {
         dto.setResourceType(ResourceType.CUSTOMER.name());
         return Result.success(mcpToolProfileService.save(dto));
@@ -113,15 +108,26 @@ public class McpToolProfileController implements McpToolProfileApi {
     }
 
     @PostMapping("/confirm_import")
-    @Operation(summary = "确认导入扩展或客户工具", description = "只写入勾选的接口")
+    @Operation(summary = "确认导入扩展或租户工具", description = "只写入勾选的接口；工具名由服务端生成")
     public Result<McpToolImportResultVo> confirmImport(@RequestBody OpenApiConfirmDto dto) {
         return Result.success(mcpToolImportService.confirm(dto));
     }
 
-    @PostMapping("/sync_built_in")
-    @Operation(summary = "同步自有系统工具", description = "按服务导入选中或全部资源接口")
-    public Result<McpToolImportResultVo> syncBuiltIn(@RequestBody BuiltInSyncDto dto) {
-        return Result.success(mcpToolImportService.syncBuiltIn(dto));
+    @PostMapping("/sync_native")
+    @Operation(summary = "同步原生工具", description = "按服务导入选中或全部资源接口")
+    public Result<McpToolImportResultVo> syncNative(@RequestBody NativeSyncDto dto) {
+        return Result.success(mcpToolImportService.syncNative(dto));
+    }
+
+    @Override
+    public Result<PageData<McpToolOptionVo>> selectOptionPage(PageSelectListDto<McpToolOptionSelectDto> selectDto) {
+        return Result.successPage(mcpToolProfileService.selectOptionPage(selectDto));
+    }
+
+    @PostMapping("/options/by_names")
+    @Operation(summary = "按名字批量查询工具元数据", description = "技能已绑定工具；可见范围由服务端强制，单次最多 200 个")
+    public Result<List<McpToolMetaVo>> selectMetas(@RequestBody List<String> names) {
+        return Result.success(mcpToolProfileService.selectMetas(names));
     }
 
     @PostMapping("/{id}/status")

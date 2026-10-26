@@ -2,9 +2,12 @@ package com.g2rain.mcp.registry.service;
 
 import com.g2rain.common.model.PageData;
 import com.g2rain.common.model.PageSelectListDto;
+import com.g2rain.mcp.registry.dto.McpToolOptionSelectDto;
 import com.g2rain.mcp.registry.dto.McpToolProfileDto;
 import com.g2rain.mcp.registry.dto.McpToolProfileSelectDto;
 import com.g2rain.mcp.registry.dto.UpdateStatusDto;
+import com.g2rain.mcp.registry.vo.McpToolMetaVo;
+import com.g2rain.mcp.registry.vo.McpToolOptionVo;
 import com.g2rain.mcp.registry.vo.McpToolProfileVo;
 
 import java.util.List;
@@ -34,12 +37,29 @@ public interface McpToolProfileService {
     PageData<McpToolProfileVo> selectPage(PageSelectListDto<McpToolProfileSelectDto> selectDto);
 
     /**
-     * 新增或更新数据
+     * 更新工具的标题、说明、OpenAPI 文档与 inputSchema。工具一律由同步 / 导入生成，不支持单条新增；
+     * 名称、类型、服务、方法、路径不可改。
      *
-     * @param dto 数据传输对象
-     * @return 操作结果（影响行数）
+     * @param dto 数据传输对象，须带 id
+     * @return 工具主键
      */
     Long save(McpToolProfileDto dto);
+
+    /**
+     * 技能选择工具：分页查询可选工具。NATIVE、EXTENSION 全局可见，CUSTOMER 限当前机构；只返回启用的。
+     *
+     * @param selectDto 类型、服务、关键字与分页
+     * @return 工具选项
+     */
+    PageData<McpToolOptionVo> selectOptionPage(PageSelectListDto<McpToolOptionSelectDto> selectDto);
+
+    /**
+     * 技能已绑定工具：按名字批量取元数据，可见范围同 {@link #selectOptionPage}。
+     *
+     * @param names 工具名，单次最多 200 个
+     * @return 工具元数据；不可见或不存在的名字不返回
+     */
+    List<McpToolMetaVo> selectMetas(List<String> names);
 
     /**
      * 只改启用状态。

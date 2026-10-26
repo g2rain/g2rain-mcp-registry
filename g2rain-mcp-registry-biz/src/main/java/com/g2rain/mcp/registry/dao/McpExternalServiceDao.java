@@ -5,7 +5,6 @@ import com.g2rain.data.isolation.annotations.IgnoreIsolation;
 import com.g2rain.mcp.registry.dao.po.McpExternalServicePo;
 import com.g2rain.mcp.registry.dto.McpExternalServiceSelectDto;
 import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -110,17 +109,4 @@ public interface McpExternalServiceDao {
      */
     @IgnoreIsolation
     List<McpExternalServicePo> selectListWithoutIsolation(McpExternalServiceSelectDto selectDto);
-
-    /**
-     * 按编码统计（忽略隔离）；可选限定 resourceType。
-     */
-    @IgnoreIsolation
-    int countByCodeWithoutIsolation(@Param("code") String code,
-                                    @Param("resourceType") String resourceType);
-
-    /**
-     * 指定机构内按编码统计。
-     */
-    @IgnoreIsolation
-    int countByOrganIdAndCode(@Param("organId") Long organId, @Param("code") String code);
 }

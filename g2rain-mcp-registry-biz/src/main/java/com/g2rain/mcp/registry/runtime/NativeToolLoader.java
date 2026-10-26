@@ -1,6 +1,5 @@
 package com.g2rain.mcp.registry.runtime;
 
-
 import com.g2rain.common.utils.Collections;
 import com.g2rain.common.utils.Strings;
 import com.g2rain.mcp.registry.catalog.OpenApiOperation;
@@ -11,6 +10,7 @@ import com.g2rain.mcp.registry.enums.ResourceStatus;
 import com.g2rain.mcp.registry.enums.ResourceType;
 import com.g2rain.mcp.registry.tool.ToolRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -20,10 +20,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 把启用的内置工具装进内存。
+ * 原生工具（NATIVE）装载器：按服务注册主键（{@code service_id}）分组装入 {@link ToolRegistry}。
  * <p>
- * 档案来自 {@code mcp_tool_profile}，调用地址来自 {@link ServiceEndpointCache}。
- * 服务注册变更后按服务编码重装这一批工具。
+ * 调用基址取 {@link ServiceEndpointCache}；服务未注册或没有地址时该服务的工具不装载。
  * </p>
  *
  * @author alpha
@@ -31,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
-public class BuiltInToolLoader {
+public class NativeToolLoader {
 
     private final McpToolProfileDao toolProfileDao;
 
@@ -41,10 +40,10 @@ public class BuiltInToolLoader {
 
     private final ToolRegistry toolRegistry;
 
-    private final ConcurrentHashMap<String, Set<Long>> profileIdsByService = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Set<Long>> profileIdsByService = new ConcurrentHashMap<>();
 
-    public BuiltInToolLoader(McpToolProfileDao toolProfileDao, ServiceEndpointCache endpoints,
-                             ToolOperationAssembler assembler, ToolRegistry toolRegistry) {
+    public NativeToolLoader(McpToolProfileDao toolProfileDao, ServiceEndpointCache endpoints,
+                            ToolOperationAssembler assembler, ToolRegistry toolRegistry) {
         this.toolProfileDao = toolProfileDao;
         this.endpoints = endpoints;
         this.assembler = assembler;
@@ -52,40 +51,41 @@ public class BuiltInToolLoader {
     }
 
     /**
-     * 清空后重新装载全部启用的内置工具。
+     * 卸下全部原生工具后重新装载。
      */
     public void loadAll() {
         dropAll();
-        List<McpToolProfilePo> profiles = list(null);
         int loaded = 0;
-        for (McpToolProfilePo profile : profiles) {
+        for (McpToolProfilePo profile : list(null)) {
             if (register(profile)) {
                 loaded++;
             }
         }
-        log.info("内置工具已装入内存 count={}", loaded);
+        log.info("原生工具已装入内存 count={}", loaded);
     }
 
     /**
-     * 按服务编码重装：先组好转再卸旧装新，缩短不可用窗口。
+     * 重装一个服务的工具；服务未注册时只卸下。
      *
-     * @param serviceCode 服务编码
+     * @param serviceId 服务注册主键
      */
-    public void reload(String serviceCode) {
-        if (Strings.isBlank(serviceCode)) {
+    public void reload(@Nullable Long serviceId) {
+        if (Objects.isNull(serviceId)) {
             return;
         }
+
         List<Prepared> prepared = new ArrayList<>();
-        if (Objects.nonNull(endpoints.endpoint(serviceCode))) {
-            for (McpToolProfilePo profile : list(serviceCode)) {
+        if (Objects.nonNull(endpoints.endpoint(serviceId))) {
+            for (McpToolProfilePo profile : list(serviceId)) {
                 Prepared item = prepare(profile);
                 if (Objects.nonNull(item)) {
                     prepared.add(item);
                 }
             }
         }
+
         synchronized (this) {
-            drop(serviceCode);
+            drop(serviceId);
             for (Prepared item : prepared) {
                 commit(item);
             }
@@ -93,23 +93,24 @@ public class BuiltInToolLoader {
     }
 
     /**
-     * 卸下某个服务已装入内存的内置工具。
+     * 卸下一个服务的工具。
      *
-     * @param serviceCode 服务编码
+     * @param serviceId 服务注册主键
      */
-    public void drop(String serviceCode) {
-        Set<Long> profileIds = profileIdsByService.remove(serviceCode);
+    public void drop(Long serviceId) {
+        Set<Long> profileIds = profileIdsByService.remove(serviceId);
         if (Objects.isNull(profileIds)) {
             return;
         }
+
         for (Long profileId : profileIds) {
             toolRegistry.remove(profileId);
         }
     }
 
     private void dropAll() {
-        for (String serviceCode : Set.copyOf(profileIdsByService.keySet())) {
-            drop(serviceCode);
+        for (Long serviceId : Set.copyOf(profileIdsByService.keySet())) {
+            drop(serviceId);
         }
     }
 
@@ -118,44 +119,48 @@ public class BuiltInToolLoader {
         if (Objects.isNull(prepared)) {
             return false;
         }
+
         commit(prepared);
         return true;
     }
 
-    private Prepared prepare(McpToolProfilePo profile) {
-        if (Objects.isNull(profile.getId()) || Strings.isBlank(profile.getName()) || Strings.isBlank(profile.getServiceCode())) {
+    private @Nullable Prepared prepare(McpToolProfilePo profile) {
+        if (Objects.isNull(profile.getId()) || Strings.isBlank(profile.getName()) || Objects.isNull(profile.getServiceId())) {
             return null;
         }
-        ServiceEndpointCache.Endpoint endpoint = endpoints.endpoint(profile.getServiceCode());
+
+        String endpoint = endpoints.endpoint(profile.getServiceId());
         if (Objects.isNull(endpoint)) {
-            log.warn("内置工具缺少服务地址 name={} serviceCode={}", profile.getName(), profile.getServiceCode());
+            log.warn("原生工具缺少服务地址 name={} serviceId={}", profile.getName(), profile.getServiceId());
             return null;
         }
-        OpenApiOperation operation = assembler.assemble(profile, endpoint.endpoint(), endpoint.contextPath());
+
+        OpenApiOperation operation = assembler.assemble(profile, endpoint);
         if (Objects.isNull(operation)) {
             return null;
         }
-        return new Prepared(profile.getId(), profile.getName(), profile.getSourceId(), profile.getServiceCode(), operation);
+
+        return new Prepared(profile.getId(), profile.getName(), profile.getSourceId(), profile.getServiceId(),
+            operation, profile.getInputSchema());
     }
 
     private void commit(Prepared prepared) {
         toolRegistry.register(prepared.profileId(), prepared.name(), prepared.sourceId(),
-            ResourceType.BUILT_IN.name(), prepared.operation());
-        profileIdsByService.computeIfAbsent(prepared.serviceCode(), key -> ConcurrentHashMap.newKeySet())
+            ResourceType.NATIVE.name(), prepared.operation(), prepared.inputSchema());
+        profileIdsByService.computeIfAbsent(prepared.serviceId(), key -> ConcurrentHashMap.newKeySet())
             .add(prepared.profileId());
     }
 
-    private List<McpToolProfilePo> list(String serviceCode) {
+    private List<McpToolProfilePo> list(@Nullable Long serviceId) {
         McpToolProfileSelectDto select = new McpToolProfileSelectDto();
-        select.setResourceType(ResourceType.BUILT_IN.name());
+        select.setResourceType(ResourceType.NATIVE.name());
         select.setStatus(ResourceStatus.ACTIVE.name());
-        if (Strings.isNotBlank(serviceCode)) {
-            select.setServiceCode(serviceCode);
-        }
+        select.setServiceId(serviceId);
         List<McpToolProfilePo> profiles = toolProfileDao.selectListWithoutIsolation(select);
         return Collections.isEmpty(profiles) ? List.of() : profiles;
     }
 
-    private record Prepared(Long profileId, String name, Long sourceId, String serviceCode, OpenApiOperation operation) {
+    private record Prepared(Long profileId, String name, @Nullable Long sourceId, Long serviceId,
+                            OpenApiOperation operation, String inputSchema) {
     }
 }

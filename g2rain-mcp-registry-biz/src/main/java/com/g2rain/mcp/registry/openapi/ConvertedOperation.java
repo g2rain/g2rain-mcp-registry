@@ -14,14 +14,14 @@ import org.jspecify.annotations.Nullable;
  * @param path             接口路径
  * @param name             展示名，优先 summary
  * @param description      接口说明，可空
- * @param toolName         建议工具名，{@code {method}_{path}}
+ * @param toolName         工具名，按 {@link com.g2rain.mcp.registry.openapi.naming.EndpointStrategy} 生成
  * @param inputSchema      MCP inputSchema JSON；失败时为空
- * @param openapiOperation 展开 {@code $ref} 后的 Operation JSON；失败时为空
+ * @param openapiDocument  单接口 OpenAPI 文档 JSON（根级字段 + 单个 path + method，{@code $ref} 已展开）；失败时为空
  * @param problem          该接口的失败原因；成功时为空
  * @author alpha
  * @since 2026/10/16
  */
 public record ConvertedOperation(String method, String path, String name, @Nullable String description,
-                                 String toolName, @Nullable String inputSchema, @Nullable String openapiOperation,
+                                 String toolName, @Nullable String inputSchema, @Nullable String openapiDocument,
                                  @Nullable String problem) {
 }
