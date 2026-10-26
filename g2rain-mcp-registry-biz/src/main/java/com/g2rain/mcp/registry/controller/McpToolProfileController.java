@@ -85,6 +85,14 @@ public class McpToolProfileController implements McpToolProfileApi {
         return Result.successPage(mcpToolProfileService.selectPage(selectDto));
     }
 
+    @PostMapping("/native/save")
+    @IdentityInject(organIdPropertyName = "organId")
+    @Operation(summary = "更新原生工具", description = "只改标题、说明、OpenAPI 文档与 inputSchema；工具由同步生成，不支持单条新增")
+    public Result<Long> saveNative(@RequestBody McpToolProfileDto dto) {
+        dto.setResourceType(ResourceType.NATIVE.name());
+        return Result.success(mcpToolProfileService.save(dto));
+    }
+
     @PostMapping("/extension/save")
     @IdentityInject(organIdPropertyName = "organId")
     @Operation(summary = "更新扩展系统工具", description = "只改标题、说明、OpenAPI 文档与 inputSchema；工具由导入生成，不支持单条新增")

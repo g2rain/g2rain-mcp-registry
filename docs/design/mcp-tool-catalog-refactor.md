@@ -257,7 +257,7 @@ DDL 已写入 `scripts/g2rain-mcp-registry.sql` 与 `g2rain-deploy/config/mysql/
 | `BuiltInApiPermission`（及测试 `BuiltInApiPermissionTest`） | `NativeApiPermission`（`NativeApiPermissionTest`） |
 | `BuiltInSyncDto` | `NativeSyncDto` |
 | `McpToolImportServiceImpl.syncBuiltIn`、`loadBuiltInMap` | `syncNative`、`loadNativeMap` |
-| `McpToolProfileApi/Controller.selectBuiltInList`、`selectBuiltInPage`、`saveBuiltIn` | `selectNativeList`、`selectNativePage`；`saveBuiltIn` 删除（NATIVE 只能同步） |
+| `McpToolProfileApi/Controller.selectBuiltInList`、`selectBuiltInPage`、`saveBuiltIn` | `selectNativeList`、`selectNativePage`、`saveNative`（`/native/save`，只更新不新增；NATIVE 只能同步生成） |
 | 路径 `/mcp_tool_profile/built_in/*`、`/mcp_tool_profile/sync_built_in` | `/mcp_tool_profile/native/*`、`/mcp_tool_profile/sync_native` |
 
 路径变化需同步网关资源登记（`resource_api`）与菜单权限。
@@ -319,7 +319,7 @@ WHERE p.delete_flag = 0
 
 | 菜单 | 落地页 | 说明 |
 |---|---|---|
-| 平台原生工具 | `mcp_tool_profile`（NATIVE） | 只保留"同步平台接口"，去掉"新增工具" |
+| 平台原生工具 | `mcp_tool_profile`（NATIVE） | 只保留"同步平台接口"，去掉"新增工具"；保留编辑、启停、删除 |
 | 平台扩展工具 | `mcp_external_service`（EXTENSION） | 服务列表；行操作"工具管理" |
 | 租户系统工具 | `mcp_external_service`（CUSTOMER） | 服务列表；行操作"工具管理" |
 
