@@ -21,6 +21,15 @@
         MCP tool registry and management center for Agent applications.
     </description>
 
+    <url>https://github.com/g2rain/g2rain-mcp-registry</url>
+
+    <scm>
+        <url>https://github.com/g2rain/g2rain-mcp-registry</url>
+        <connection>scm:git:https://github.com/g2rain/g2rain-mcp-registry.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/g2rain/g2rain-mcp-registry.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
+
     <licenses>
         <license>
             <name>Apache License, Version 2.0</name>
