@@ -3,6 +3,8 @@ package com.g2rain.mcp.registry.converter;
 import com.g2rain.common.converter.CommonConverter;
 import com.g2rain.mcp.registry.dao.po.McpToolProfilePo;
 import com.g2rain.mcp.registry.dto.McpToolProfileDto;
+import com.g2rain.mcp.registry.vo.McpToolMetaVo;
+import com.g2rain.mcp.registry.vo.McpToolOptionVo;
 import com.g2rain.mcp.registry.vo.McpToolProfileVo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -31,7 +33,20 @@ public interface McpToolProfileConverter {
      */
     @Mapping(target = "createTime", source = "createTime", qualifiedByName = "localDateTimeToString")
     @Mapping(target = "updateTime", source = "updateTime", qualifiedByName = "localDateTimeToString")
+    @Mapping(target = "serviceName", ignore = true)
     McpToolProfileVo po2vo(McpToolProfilePo po);
+
+    /**
+     * Po -> 工具选项；服务名称由调用方填充
+     */
+    @Mapping(target = "serviceName", ignore = true)
+    McpToolOptionVo po2option(McpToolProfilePo po);
+
+    /**
+     * Po -> 工具元数据；服务名称由调用方填充
+     */
+    @Mapping(target = "serviceName", ignore = true)
+    McpToolMetaVo po2meta(McpToolProfilePo po);
 
     /**
      * Dto -> Po

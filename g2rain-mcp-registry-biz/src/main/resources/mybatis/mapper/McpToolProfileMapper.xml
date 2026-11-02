@@ -15,13 +15,13 @@
         <result column="name" property="name" jdbcType="VARCHAR"/>
         <result column="title" property="title" jdbcType="VARCHAR"/>
         <result column="resource_type" property="resourceType" jdbcType="VARCHAR"/>
-        <result column="service_code" property="serviceCode" jdbcType="VARCHAR"/>
+        <result column="service_id" property="serviceId" jdbcType="BIGINT"/>
         <result column="source_id" property="sourceId" jdbcType="BIGINT"/>
         <result column="method" property="method" jdbcType="VARCHAR"/>
         <result column="path" property="path" jdbcType="VARCHAR"/>
         <result column="status" property="status" jdbcType="VARCHAR"/>
         <result column="description" property="description" jdbcType="VARCHAR"/>
-        <result column="openapi_operation" property="openapiOperation" jdbcType="LONGVARCHAR"/>
+        <result column="openapi_document" property="openapiDocument" jdbcType="LONGVARCHAR"/>
         <result column="input_schema" property="inputSchema" jdbcType="LONGVARCHAR"/>
         <!-- deleteFlag字段（如果存在） -->
         <result column="delete_flag" property="deleteFlag" jdbcType="TINYINT"/>
@@ -70,8 +70,8 @@
                         resource_type
                         <include refid="directionClause"/>
                     </when>
-                    <when test="item.column == 'serviceCode'">
-                        service_code
+                    <when test="item.column == 'serviceId'">
+                        service_id
                         <include refid="directionClause"/>
                     </when>
                     <when test="item.column == 'sourceId'">
@@ -94,8 +94,8 @@
                         description
                         <include refid="directionClause"/>
                     </when>
-                    <when test="item.column == 'openapiOperation'">
-                        openapi_operation
+                    <when test="item.column == 'openapiDocument'">
+                        openapi_document
                         <include refid="directionClause"/>
                     </when>
                     <when test="item.column == 'inputSchema'">
@@ -115,7 +115,7 @@
         <!-- 基础字段 -->
         create_time, update_time,
         <!-- 业务字段 -->
-        organ_id, name, title, resource_type, service_code, source_id, method, path, status, description, openapi_operation, input_schema,
+        organ_id, name, title, resource_type, service_id, source_id, method, path, status, description, openapi_document, input_schema,
         <!-- deleteFlag字段（如果存在） -->
         delete_flag,
         <!-- version字段（如果存在） -->
@@ -126,7 +126,7 @@
         <!-- 基础字段值 -->
         #{createTime, jdbcType=TIMESTAMP}, #{updateTime, jdbcType=TIMESTAMP},
         <!-- 业务字段值 -->
-        #{organId, jdbcType=BIGINT}, #{name, jdbcType=VARCHAR}, #{title, jdbcType=VARCHAR}, #{resourceType, jdbcType=VARCHAR}, #{serviceCode, jdbcType=VARCHAR}, #{sourceId, jdbcType=BIGINT}, #{method, jdbcType=VARCHAR}, #{path, jdbcType=VARCHAR}, #{status, jdbcType=VARCHAR}, #{description, jdbcType=VARCHAR}, #{openapiOperation, jdbcType=LONGVARCHAR}, #{inputSchema, jdbcType=LONGVARCHAR},
+        #{organId, jdbcType=BIGINT}, #{name, jdbcType=VARCHAR}, #{title, jdbcType=VARCHAR}, #{resourceType, jdbcType=VARCHAR}, #{serviceId, jdbcType=BIGINT}, #{sourceId, jdbcType=BIGINT}, #{method, jdbcType=VARCHAR}, #{path, jdbcType=VARCHAR}, #{status, jdbcType=VARCHAR}, #{description, jdbcType=VARCHAR}, #{openapiDocument, jdbcType=LONGVARCHAR}, #{inputSchema, jdbcType=LONGVARCHAR},
         <!-- deleteFlag字段值（如果存在，设置默认值为0） -->
         0,
         <!-- version字段值（如果存在，设置默认值为0） -->
@@ -155,8 +155,8 @@
             <if test="resourceType != null">
                 resource_type = #{resourceType, jdbcType=VARCHAR},
             </if>
-            <if test="serviceCode != null">
-                service_code = #{serviceCode, jdbcType=VARCHAR},
+            <if test="serviceId != null">
+                service_id = #{serviceId, jdbcType=BIGINT},
             </if>
             <if test="sourceId != null">
                 source_id = #{sourceId, jdbcType=BIGINT},
@@ -173,8 +173,8 @@
             <if test="description != null">
                 description = #{description, jdbcType=VARCHAR},
             </if>
-            <if test="openapiOperation != null">
-                openapi_operation = #{openapiOperation, jdbcType=LONGVARCHAR},
+            <if test="openapiDocument != null">
+                openapi_document = #{openapiDocument, jdbcType=LONGVARCHAR},
             </if>
             <if test="inputSchema != null">
                 input_schema = #{inputSchema, jdbcType=LONGVARCHAR},
@@ -193,7 +193,7 @@
         <!-- 基础字段 -->
         create_time, update_time,
         <!-- 业务字段 -->
-        organ_id, name, title, resource_type, service_code, source_id, method, path, status, description, openapi_operation, input_schema,
+        organ_id, name, title, resource_type, service_id, source_id, method, path, status, description, openapi_document, input_schema,
         <!-- deleteFlag字段（如果存在） -->
         delete_flag,
         <!-- version字段（如果存在） -->
@@ -212,7 +212,7 @@
         <!-- 基础字段 -->
         create_time, update_time,
         <!-- 业务字段 -->
-        organ_id, name, title, resource_type, service_code, source_id, method, path, status, description, openapi_operation, input_schema,
+        organ_id, name, title, resource_type, service_id, source_id, method, path, status, description, openapi_document, input_schema,
         <!-- deleteFlag字段（如果存在） -->
         delete_flag,
         <!-- version字段（如果存在） -->
@@ -267,8 +267,8 @@
             <if test="resourceType != null">
                 AND resource_type = #{resourceType, jdbcType=VARCHAR}
             </if>
-            <if test="serviceCode != null">
-                AND service_code = #{serviceCode, jdbcType=VARCHAR}
+            <if test="serviceId != null">
+                AND service_id = #{serviceId, jdbcType=BIGINT}
             </if>
             <if test="sourceId != null">
                 AND source_id = #{sourceId, jdbcType=BIGINT}
@@ -284,9 +284,6 @@
             </if>
             <if test="description != null">
                 AND description = #{description, jdbcType=VARCHAR}
-            </if>
-            <if test="openapiOperation != null">
-                AND openapi_operation = #{openapiOperation, jdbcType=LONGVARCHAR}
             </if>
             <if test="inputSchema != null">
                 AND input_schema = #{inputSchema, jdbcType=LONGVARCHAR}
@@ -310,7 +307,7 @@
         <!-- 基础字段 -->
         create_time, update_time,
         <!-- 业务字段 -->
-        organ_id, name, title, resource_type, service_code, source_id, method, path, status, description, openapi_operation, input_schema,
+        organ_id, name, title, resource_type, service_id, source_id, method, path, status, description, openapi_document, input_schema,
         <!-- deleteFlag字段（如果存在） -->
         delete_flag,
         <!-- version字段（如果存在） -->
@@ -323,7 +320,7 @@
             <!-- 基础字段值 -->
             #{item.createTime, jdbcType=TIMESTAMP}, #{item.updateTime, jdbcType=TIMESTAMP},
             <!-- 业务字段值 -->
-            #{item.organId, jdbcType=BIGINT}, #{item.name, jdbcType=VARCHAR}, #{item.title, jdbcType=VARCHAR}, #{item.resourceType, jdbcType=VARCHAR}, #{item.serviceCode, jdbcType=VARCHAR}, #{item.sourceId, jdbcType=BIGINT}, #{item.method, jdbcType=VARCHAR}, #{item.path, jdbcType=VARCHAR}, #{item.status, jdbcType=VARCHAR}, #{item.description, jdbcType=VARCHAR}, #{item.openapiOperation, jdbcType=LONGVARCHAR}, #{item.inputSchema, jdbcType=LONGVARCHAR},
+            #{item.organId, jdbcType=BIGINT}, #{item.name, jdbcType=VARCHAR}, #{item.title, jdbcType=VARCHAR}, #{item.resourceType, jdbcType=VARCHAR}, #{item.serviceId, jdbcType=BIGINT}, #{item.sourceId, jdbcType=BIGINT}, #{item.method, jdbcType=VARCHAR}, #{item.path, jdbcType=VARCHAR}, #{item.status, jdbcType=VARCHAR}, #{item.description, jdbcType=VARCHAR}, #{item.openapiDocument, jdbcType=LONGVARCHAR}, #{item.inputSchema, jdbcType=LONGVARCHAR},
             <!-- deleteFlag字段值（如果存在，设置默认值为0） -->
             0,
             <!-- version字段值（如果存在，设置默认值为0） -->
@@ -358,8 +355,8 @@
             <if test="resourceType != null">
                 resource_type = #{resourceType, jdbcType=VARCHAR},
             </if>
-            <if test="serviceCode != null">
-                service_code = #{serviceCode, jdbcType=VARCHAR},
+            <if test="serviceId != null">
+                service_id = #{serviceId, jdbcType=BIGINT},
             </if>
             <if test="sourceId != null">
                 source_id = #{sourceId, jdbcType=BIGINT},
@@ -376,8 +373,8 @@
             <if test="description != null">
                 description = #{description, jdbcType=VARCHAR},
             </if>
-            <if test="openapiOperation != null">
-                openapi_operation = #{openapiOperation, jdbcType=LONGVARCHAR},
+            <if test="openapiDocument != null">
+                openapi_document = #{openapiDocument, jdbcType=LONGVARCHAR},
             </if>
             <if test="inputSchema != null">
                 input_schema = #{inputSchema, jdbcType=LONGVARCHAR},
@@ -430,52 +427,59 @@
         <include refid="selectListBody"/>
     </select>
 
-    <select id="countNameConflict" resultType="int">
-        SELECT COUNT(1)
+    <!-- 同一机构 + 同一资源类型下已占用的工具名，导入时判重 -->
+    <select id="selectNameOwners" resultMap="BaseResultMap">
+        SELECT id, name, service_id, method, path
         FROM mcp_tool_profile
         WHERE (delete_flag = 0 OR delete_flag IS NULL)
-          AND name = #{name, jdbcType=VARCHAR}
-          <if test="excludeId != null">
-              AND id != #{excludeId, jdbcType=BIGINT}
-          </if>
-          <choose>
-              <when test="resourceType == 'CUSTOMER'">
-                  AND (
-                      resource_type IN ('BUILT_IN', 'EXTENSION')
-                      OR (resource_type = 'CUSTOMER' AND organ_id = #{organId, jdbcType=BIGINT})
-                  )
-              </when>
-              <otherwise>
-                  <!-- 共享工具：与任意同名冲突（含各租户 CUSTOMER） -->
-              </otherwise>
-          </choose>
+          AND resource_type = #{resourceType, jdbcType=VARCHAR}
+          AND organ_id = #{organId, jdbcType=BIGINT}
     </select>
 
-    <select id="selectConflictNames" resultType="string">
-        SELECT name
-        FROM mcp_tool_profile
-        WHERE (delete_flag = 0 OR delete_flag IS NULL)
-          AND name IS NOT NULL
-          AND name != ''
-          <choose>
-              <when test="resourceType == 'CUSTOMER'">
-                  AND (
-                      resource_type IN ('BUILT_IN', 'EXTENSION')
-                      OR (resource_type = 'CUSTOMER' AND organ_id = #{organId, jdbcType=BIGINT})
-                  )
-              </when>
-              <otherwise>
-              </otherwise>
-          </choose>
-    </select>
-
-    <update id="deleteByServiceCodeAndOrganId">
+    <!-- 按服务删除工具（服务删除时级联） -->
+    <update id="deleteByServiceId">
         UPDATE mcp_tool_profile
         <set>
             delete_flag = 1, version = version + 1
         </set>
-        WHERE service_code = #{serviceCode, jdbcType=VARCHAR}
-          AND organ_id = #{organId, jdbcType=BIGINT}
+        WHERE service_id = #{serviceId, jdbcType=BIGINT}
           AND (delete_flag = 0 OR delete_flag IS NULL)
     </update>
+
+    <!-- 技能可见范围：NATIVE、EXTENSION 全局；CUSTOMER 限当前机构；只取启用的 -->
+    <sql id="visibleClause">
+        (delete_flag = 0 OR delete_flag IS NULL)
+        AND status = 'ACTIVE'
+        AND (
+            resource_type IN ('NATIVE', 'EXTENSION')
+            OR (resource_type = 'CUSTOMER' AND organ_id = #{organId, jdbcType=BIGINT})
+        )
+    </sql>
+
+    <!-- 技能选择工具：分页选项，只查选择所需列 -->
+    <select id="selectOptions" resultMap="BaseResultMap">
+        SELECT name, title, description, resource_type, service_id, method
+        FROM mcp_tool_profile
+        WHERE <include refid="visibleClause"/>
+          AND resource_type = #{query.resourceType, jdbcType=VARCHAR}
+          <if test="query.serviceId != null">
+              AND service_id = #{query.serviceId, jdbcType=BIGINT}
+          </if>
+          <if test="query.keyword != null and query.keyword != ''">
+              AND (name LIKE CONCAT('%', #{query.keyword, jdbcType=VARCHAR}, '%')
+                   OR title LIKE CONCAT('%', #{query.keyword, jdbcType=VARCHAR}, '%'))
+          </if>
+        ORDER BY service_id, name
+    </select>
+
+    <!-- 技能已绑定工具：按名字批量取元数据 -->
+    <select id="selectMetas" resultMap="BaseResultMap">
+        SELECT name, title, description, resource_type, service_id, method, input_schema
+        FROM mcp_tool_profile
+        WHERE <include refid="visibleClause"/>
+          AND name IN
+          <foreach collection="names" item="item" open="(" separator="," close=")">
+              #{item, jdbcType=VARCHAR}
+          </foreach>
+    </select>
 </mapper>

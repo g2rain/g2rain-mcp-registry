@@ -5,101 +5,78 @@ import com.g2rain.common.exception.BusinessException;
 import com.g2rain.common.exception.SystemErrorCode;
 import com.g2rain.common.utils.Asserts;
 import com.g2rain.common.utils.Strings;
-import com.g2rain.mcp.registry.catalog.OpenApiOperation;
 import com.g2rain.mcp.registry.enums.McpErrorCode;
-import com.g2rain.mcp.registry.enums.ResourceType;
 import com.g2rain.mcp.registry.utils.ToolNamingSupport;
 
 import java.util.Locale;
-import java.util.Objects;
 
 /**
- * 基于 HTTP 端点信息的 tool code 命名策略.
+ * MCP 工具名生成规则。
  * <p>
- * 将 {@link OpenApiOperation} 的 method、serviceSegment、contextPath、path 拼接为一个
- * 小写下划线分隔的 identifier, 作为 MCP tool 的 {@code name}.
- * </p>
- * <p>
- * <strong>拼接规则:</strong>
+ * 拼接规则：
  * </p>
  * <pre>
- * {method}_{sanitized(serviceSegment)}_{sanitized(contextPath)}_{sanitized(path)}
+ * {sourcePrefix}_{serviceCode}_{httpMethod}_{normalizedPath}
  * </pre>
+ * <ul>
+ *   <li>{@code sourcePrefix}：资源类型小写（{@code native}、{@code extension}、{@code customer}）</li>
+ *   <li>{@code serviceCode}：OpenAPI {@code info.title} 规范化，见 {@link #serviceCode(String)}</li>
+ *   <li>{@code httpMethod}：小写 HTTP 方法</li>
+ *   <li>{@code normalizedPath}：OpenAPI path 规范化，见 {@link ToolNamingSupport#sanitizePath(String)}</li>
+ * </ul>
  * <p>
- * BUILT_IN 的 {@code serviceSegment} 固定为 {@link #BUILT_IN_SEGMENT}；
- * EXTENSION / CUSTOMER 使用外部服务 {@code code}（禁止使用 {@code self}）。
- * </p>
- * <p>
- * 路径清洗委托 {@link ToolNamingSupport#sanitizePath(String)}.
- * 超长时由 {@link ToolNamingSupport#ensureMaxLength(String, String)} 截断并追加 hash 后缀.
+ * 例：{@code NATIVE} + {@code g2rain-basis} + {@code GET} + {@code /user/identities}
+ * → {@code native_g2rain_basis_get_user_identities}。超长时截断并拼接哈希，见
+ * {@link ToolNamingSupport#ensureMaxLength(String, String)}。
  * </p>
  *
  * @author alpha
- * @see NamingStrategy
- * @see ToolNamingSupport
  * @since 2026/6/29
  */
-public class EndpointStrategy implements NamingStrategy {
+public final class EndpointStrategy {
 
-    /** BUILT_IN 命名中间段；外部服务 code 禁止使用 */
-    public static final String BUILT_IN_SEGMENT = "self";
+    private EndpointStrategy() {
+    }
 
     /**
-     * 按资源类型解析命名中间段。
+     * 由 OpenAPI {@code info.title} 得到服务编码。
      *
-     * @param resourceType {@link ResourceType} 名；空则尽量用 serviceCode
-     * @param serviceCode  外部服务编码
-     * @return {@code self}、serviceCode 或空串
+     * @param title 文档标题
+     * @return 规范化后的服务编码，如 {@code g2rain-basis} → {@code g2rain_basis}
+     * @throws BusinessException 规范化后为空（如纯中文标题）
      */
-    public static String resolveServiceSegment(String resourceType, String serviceCode) {
-        if (ResourceType.BUILT_IN.name().equals(resourceType)) {
-            return BUILT_IN_SEGMENT;
+    public static String serviceCode(String title) {
+        String code = ToolNamingSupport.sanitize(title);
+        if (code.isEmpty()) {
+            throw new BusinessException(McpErrorCode.SERVICE_TITLE_INVALID, Strings.isBlank(title) ? "" : title);
         }
-        return Strings.isNotBlank(serviceCode) ? serviceCode.trim() : "";
+        return code;
     }
 
     /**
-     * 根据 OpenAPI 操作元数据生成 tool code。
+     * 生成工具名。
      *
-     * @param operation 含 serviceSegment、contextPath、path、method 的完整描述
-     * @return 符合 MCP tool name 规范的字符串，长度不超过 varchar(256)
-     * @throws BusinessException path 非空但清洗后未贡献任何片段（如 {@code "///"}）
+     * @param resourceType 资源类型名
+     * @param serviceCode  服务编码（已规范化）
+     * @param method       HTTP 方法
+     * @param path         OpenAPI path
+     * @return 工具名，长度不超过 64
+     * @throws BusinessException path 清洗后为空
      */
-    @Override
-    public String name(OpenApiOperation operation) {
-        return build(operation.method().name(), operation.serviceSegment(),
-            operation.contextPath(), operation.path());
-    }
-
-    /**
-     * 直接按四段拼名，避免为命名临时构造假 {@link OpenApiOperation}。
-     *
-     * @param method         HTTP 方法
-     * @param serviceSegment {@code self} 或 serviceCode，可空
-     * @param contextPath    上下文路径，可空
-     * @param path           HTTP 路径
-     */
-    public static String build(String method, String serviceSegment, String contextPath, String path) {
+    public static String build(String resourceType, String serviceCode, String method, String path) {
+        Asserts.isTrue(Strings.isNotBlank(resourceType), SystemErrorCode.PARAM_REQUIRED, "resourceType");
+        Asserts.isTrue(Strings.isNotBlank(serviceCode), SystemErrorCode.PARAM_REQUIRED, "serviceCode");
         Asserts.isTrue(Strings.isNotBlank(method), SystemErrorCode.PARAM_REQUIRED, "method");
-        var http = method.trim().toLowerCase(Locale.ROOT);
 
-        var canonicalKey = http + "|" + nullToEmpty(serviceSegment) + "|"
-            + nullToEmpty(contextPath) + "|" + nullToEmpty(path);
-
-        var result = new StringBuilder(http.length() + 64);
-        result.append(http);
-        ToolNamingSupport.appendSegment(result, serviceSegment);
-        ToolNamingSupport.appendSegment(result, contextPath);
-        ToolNamingSupport.appendSegment(result, path);
-
-        if (result.length() == http.length() && Strings.isNotBlank(path)) {
-            throw new BusinessException(McpErrorCode.ENDPOINT_NAME_INVALID, path);
+        String normalizedPath = ToolNamingSupport.sanitizePath(path);
+        if (normalizedPath.isEmpty()) {
+            throw new BusinessException(McpErrorCode.ENDPOINT_NAME_INVALID, Strings.isBlank(path) ? "" : path);
         }
 
-        return ToolNamingSupport.ensureMaxLength(result.toString(), canonicalKey);
-    }
-
-    private static String nullToEmpty(String value) {
-        return Objects.toString(value, "");
+        String prefix = resourceType.trim().toLowerCase(Locale.ROOT);
+        String httpMethod = method.trim().toLowerCase(Locale.ROOT);
+        String name = String.join("_", prefix, serviceCode, httpMethod, normalizedPath);
+        String uniquenessKey = String.join("|", prefix, serviceCode, httpMethod, path);
+        return ToolNamingSupport.ensureMaxLength(name, uniquenessKey);
     }
 }

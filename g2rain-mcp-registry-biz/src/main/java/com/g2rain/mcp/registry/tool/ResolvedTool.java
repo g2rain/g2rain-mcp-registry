@@ -14,8 +14,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @param profileId    profile 主键
  * @param code         MCP tool 名称
- * @param sourceId     权限过滤用的来源标识（BUILT_IN 为 resource_api.id；EXTENSION 可空）
- * @param resourceType {@code BUILT_IN} / {@code EXTENSION}；决定 call 是否走内置接口鉴权
+ * @param sourceId     权限过滤用的来源标识（NATIVE 为 resource_api.id；EXTENSION 可空）
+ * @param resourceType {@code NATIVE} / {@code EXTENSION}；决定 call 是否走原生接口鉴权
  * @param toolSpec     可 list、可 call 的完整 Tool 规格
  * @author alpha
  * @see ToolRegistry

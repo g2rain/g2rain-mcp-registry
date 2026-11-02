@@ -9,7 +9,7 @@ import lombok.Setter;
 import java.util.List;
 
 /**
- * 自有系统工具同步入参。
+ * 原生工具同步入参。
  * <p>
  * {@code importAll} 为 true 时导入该服务下全部资源接口。否则只导入 {@code resourceApiIds}。
  * </p>
@@ -20,11 +20,11 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-@Schema(description = "自有系统工具同步")
-public class BuiltInSyncDto {
+@Schema(description = "原生工具同步")
+public class NativeSyncDto {
 
-    @Schema(description = "服务编码，对应 service_registry.service_code", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String serviceCode;
+    @Schema(description = "服务注册主键，对应 service_registry.id", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long serviceId;
 
     @Schema(description = "选中的 resource_api.id；importAll 为 true 时可空")
     private List<Long> resourceApiIds;

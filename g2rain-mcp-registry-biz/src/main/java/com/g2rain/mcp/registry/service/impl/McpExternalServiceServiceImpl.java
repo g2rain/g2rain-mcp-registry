@@ -17,7 +17,6 @@ import com.g2rain.mcp.registry.dto.McpExternalServiceSelectDto;
 import com.g2rain.mcp.registry.dto.UpdateStatusDto;
 import com.g2rain.mcp.registry.enums.ResourceStatus;
 import com.g2rain.mcp.registry.enums.ResourceType;
-import com.g2rain.mcp.registry.openapi.naming.EndpointStrategy;
 import com.g2rain.mcp.registry.runtime.ExtensionToolLoader;
 import com.g2rain.mcp.registry.service.McpExternalServiceService;
 import com.g2rain.mcp.registry.vo.McpExternalServiceVo;
@@ -92,8 +91,6 @@ public class McpExternalServiceServiceImpl implements McpExternalServiceService 
         if (Objects.isNull(id) || id == 0) {
             Asserts.isTrue(Objects.nonNull(dto.getOrganId()), SystemErrorCode.PARAM_REQUIRED, "organId");
             Asserts.isTrue(Strings.isNotBlank(dto.getResourceType()), SystemErrorCode.PARAM_REQUIRED, "resourceType");
-            // code 唯一：EXTENSION 全局；CUSTOMER 本机构 + 不撞 EXTENSION；禁用保留字 self
-            assertCodeUnique(dto.getResourceType(), dto.getOrganId(), dto.getCode());
 
             // 新增：使用IdGenerator生成主键；状态固定 ACTIVE（启停走 updateStatus）
             entity.setId(idGenerator.generateId());
@@ -108,20 +105,19 @@ public class McpExternalServiceServiceImpl implements McpExternalServiceService 
             Asserts.isTrue(Objects.nonNull(existing), SystemErrorCode.DATA_NOT_EXISTS, id);
             Asserts.isTrue(Objects.equals(existing.getResourceType(), dto.getResourceType()),
                 SystemErrorCode.DATA_NOT_EXISTS, id);
-            // 更新：不允许改编码、类型；status 不在 save DTO，启停走 updateStatus
-            entity.setCode(null);
+            // 更新：不允许改类型；status 不在 save DTO，启停走 updateStatus
             entity.setResourceType(null);
             entity.setUpdateTime(Moments.now());
             int success = mcpExternalServiceDao.update(entity);
             Asserts.greaterThan(success, 0, SystemErrorCode.UPDATE_DATA_ERROR, id);
-            refreshExtension(existing.getResourceType(), existing.getCode());
+            refreshExtension(existing.getResourceType(), existing.getId());
         }
 
         return entity.getId();
     }
 
     /**
-     * 删除外部服务：级联删除该 serviceCode 下的工具档案。
+     * 删除外部服务：级联删除该服务下的工具档案。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -129,10 +125,10 @@ public class McpExternalServiceServiceImpl implements McpExternalServiceService 
         McpExternalServicePo existing = mcpExternalServiceDao.selectById(id);
         Asserts.isTrue(Objects.nonNull(existing), SystemErrorCode.DATA_NOT_EXISTS, id);
 
-        mcpToolProfileDao.deleteByServiceCodeAndOrganId(existing.getCode(), existing.getOrganId());
+        mcpToolProfileDao.deleteByServiceId(id);
         int deleted = mcpExternalServiceDao.delete(id);
         if (ResourceType.EXTENSION.name().equals(existing.getResourceType())) {
-            extensionToolLoader.drop(existing.getCode());
+            extensionToolLoader.drop(id);
         }
         return deleted;
     }
@@ -150,34 +146,13 @@ public class McpExternalServiceServiceImpl implements McpExternalServiceService 
         entity.setUpdateTime(Moments.now());
         int success = mcpExternalServiceDao.update(entity);
         Asserts.greaterThan(success, 0, SystemErrorCode.UPDATE_DATA_ERROR, id);
-        refreshExtension(existing.getResourceType(), existing.getCode());
+        refreshExtension(existing.getResourceType(), id);
         return success;
     }
 
-    /**
-     * 新增时校验服务编码 {@code code} 不与已有记录冲突。更新不走这里，编码不允许改。
-     * <p>
-     * EXTENSION 全表唯一；CUSTOMER 本机构唯一且不撞任意 EXTENSION；禁用保留字 {@code self}。
-     * </p>
-     */
-    private void assertCodeUnique(String resourceType, Long organId, String code) {
-        Asserts.isTrue(Strings.isNotBlank(code), SystemErrorCode.PARAM_REQUIRED, "code");
-        Asserts.isTrue(!EndpointStrategy.BUILT_IN_SEGMENT.equalsIgnoreCase(code),
-            SystemErrorCode.PARAM_VAL_INVALID, "code");
+    private void refreshExtension(String resourceType, Long serviceId) {
         if (ResourceType.EXTENSION.name().equals(resourceType)) {
-            Asserts.isTrue(mcpExternalServiceDao.countByCodeWithoutIsolation(code, null) == 0,
-                SystemErrorCode.DATA_EXISTS, code);
-            return;
-        }
-        Asserts.isTrue(mcpExternalServiceDao.countByOrganIdAndCode(organId, code) == 0,
-            SystemErrorCode.DATA_EXISTS, code);
-        Asserts.isTrue(mcpExternalServiceDao.countByCodeWithoutIsolation(code, ResourceType.EXTENSION.name()) == 0,
-            SystemErrorCode.DATA_EXISTS, code);
-    }
-
-    private void refreshExtension(String resourceType, String serviceCode) {
-        if (ResourceType.EXTENSION.name().equals(resourceType)) {
-            extensionToolLoader.reload(serviceCode);
+            extensionToolLoader.reload(serviceId);
         }
     }
 

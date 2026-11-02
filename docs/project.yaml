@@ -1,0 +1,18 @@
+schemaVersion: 1
+name: g2rain-mcp-registry
+family: business-service
+role: MCP 外部服务、工具定义与调用代理服务
+language: Java
+buildTool: Maven
+architectureBaseline: {repository: https://github.com/g2rain/g2rain, ref: architecture-v1.0.0, profile: docs/architecture/profiles/java-domain-service, version: 1.0.0, status: planned, deviations: docs/architecture/deviations.md}
+ownership:
+  owns: [MCP 外部服务资料, MCP 工具资料, 工具 schema 解析, MCP tools/list 与 tools/call 代理]
+  excludes: [Agent 配置与 Skill 绑定, Agent 任务执行, 模型供应商接入, 网关鉴权与部署编排]
+modules:
+  - {name: g2rain-mcp-registry-api, path: g2rain-mcp-registry-api, role: 查询契约与 MCP 元数据模型, mayDependOn: []}
+  - {name: g2rain-mcp-registry-biz, path: g2rain-mcp-registry-biz, role: 注册、schema、上下文与工具代理实现, mayDependOn: [g2rain-mcp-registry-api]}
+  - {name: g2rain-mcp-registry-startup, path: g2rain-mcp-registry-startup, role: Spring Boot 和 MCP 服务组装, mayDependOn: [g2rain-mcp-registry-biz]}
+runtime: {mainClass: com.g2rain.mcp.registry.Application, defaultPort: 8080, defaultProfile: nacos, minimumVersions: {java: "25", mysql: "8.0.13"}, dependencies: [MySQL, Redis, Nacos, 下游 MCP/HTTP 服务]}
+commands: {verify: mvn clean verify, run: "mvn -pl g2rain-mcp-registry-startup -am spring-boot:run", codegen: mvn g2rain-crafter:bootstrap, image: "./build.sh <tag>"}
+validation: {lastVerifiedAt: null, command: mvn clean verify, result: not-run, note: 文档初始化未运行构建。}
+documentation: {entry: docs/index.md, architecture: docs/architecture/overview.md, decisions: docs/decisions}

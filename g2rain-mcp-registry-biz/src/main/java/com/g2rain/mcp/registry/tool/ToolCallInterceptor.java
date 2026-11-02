@@ -1,7 +1,7 @@
 package com.g2rain.mcp.registry.tool;
 
-
 import com.g2rain.common.utils.MediaTypes;
+import com.g2rain.mcp.registry.utils.McpConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -71,15 +71,16 @@ public class ToolCallInterceptor implements ClientHttpRequestInterceptor {
         try {
             byte[] requestBytes = Objects.requireNonNullElse(requestBody, new byte[0]);
             String requestText = new String(requestBytes, StandardCharsets.UTF_8);
+            Object resourceType = request.getAttributes().get(McpConstants.RESOURCE_TYPE_ATTRIBUTE);
             if (json) {
                 byte[] responseBytes = Objects.requireNonNullElse(responseBody, new byte[0]);
-                log.info("tool call method={} url={} status={} requestBody={} responseBody={}",
-                    request.getMethod(), request.getURI(), status, requestText,
+                log.info("tool call resourceType={} method={} url={} status={} requestBody={} responseBody={}",
+                    resourceType, request.getMethod(), request.getURI(), status, requestText,
                     new String(responseBytes, StandardCharsets.UTF_8));
                 return;
             }
-            log.info("tool call method={} url={} status={} requestBody={}",
-                request.getMethod(), request.getURI(), status, requestText);
+            log.info("tool call resourceType={} method={} url={} status={} requestBody={}",
+                resourceType, request.getMethod(), request.getURI(), status, requestText);
         } catch (RuntimeException ex) {
             log.warn("记录工具出站日志失败", ex);
         }

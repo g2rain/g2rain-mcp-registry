@@ -1,6 +1,5 @@
 package com.g2rain.mcp.registry.tool;
 
-
 import com.g2rain.common.exception.BusinessException;
 import com.g2rain.common.exception.SystemErrorCode;
 import com.g2rain.mcp.registry.catalog.OpenApiOperation;
@@ -10,6 +9,7 @@ import com.g2rain.mcp.registry.error.ErrorModelWriter;
 import com.g2rain.mcp.registry.schema.HttpRequestSpec;
 import com.g2rain.mcp.registry.support.MetricRecorder;
 import com.g2rain.mcp.registry.support.ProgressUpdateProvider;
+import com.g2rain.mcp.registry.utils.McpConstants;
 import io.modelcontextprotocol.spec.McpSchema;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -174,9 +174,11 @@ public class ToolHandler {
      * @param context         MCP 请求上下文
      * @param httpRequestSpec 已分解的 HTTP 请求参数
      * @param operation       目标 OpenAPI 操作 (endpoint + path + method)
+     * @param resourceType    工具资源类型, 作为出站请求属性交给出站拦截器
      * @return 供 MCP SDK 返回给客户端的 tool 结果
      */
-    public McpSchema.CallToolResult execute(McpRequestContext context, HttpRequestSpec httpRequestSpec, OpenApiOperation operation) {
+    public McpSchema.CallToolResult execute(McpRequestContext context, HttpRequestSpec httpRequestSpec,
+                                            OpenApiOperation operation, String resourceType) {
         // MCP tool 维度计数: 「某个 operation 被 call 了一次」(不区分 HTTP 成败)
         metricRecorder.recordToolCall(operation);
 
@@ -187,7 +189,7 @@ public class ToolHandler {
 
         try {
             // === 分支 A 前置: 发起下游 HTTP, 2xx 时正常返回 ResponseEntity ===
-            var response = doExecute(context, httpRequestSpec, operation);
+            var response = doExecute(context, httpRequestSpec, operation, resourceType);
 
             // --- 指标: HTTP 层 ---
             // 停止 HTTP timer, 上报 RestClient 往返耗时 (按 operation + statusCode 分桶)
@@ -282,11 +284,13 @@ public class ToolHandler {
      * @param context         MCP 上下文 (enricher、进度通知用)
      * @param httpRequestSpec 分解后的参数 (path/query/header/body)
      * @param operation       endpoint + path + method
+     * @param resourceType    工具资源类型, 只作进程内请求属性, 不发往下游
      * @return HTTP 响应; body 类型为 String (JSON 文本)
      * @throws HttpStatusCodeException 下游 4xx/5xx
      * @throws RuntimeException        网络失败, 或进度线程 join 被中断
      */
-    private ResponseEntity<String> doExecute(McpRequestContext context, HttpRequestSpec httpRequestSpec, OpenApiOperation operation) {
+    private ResponseEntity<String> doExecute(McpRequestContext context, HttpRequestSpec httpRequestSpec,
+                                             OpenApiOperation operation, String resourceType) {
 
         // ===================== 阶段 1: Method + URI =====================
         // 无 baseUrl, 每次 call 用 operation.endpoint() 拼完整 URI; lb 与 http 分流出站客户端
@@ -300,7 +304,9 @@ public class ToolHandler {
                 httpRequestSpec.parameters().query().forEach((name, value) -> addQueryParameter(builder, name, value));
                 // path 模板变量: /users/{id} + {id=123} → /users/123
                 return builder.build(httpRequestSpec.parameters().path());
-            });
+            })
+            // 进程内请求属性: 供出站拦截器按资源类型计量 / 审计, 不写入 header, 下游收不到
+            .attribute(McpConstants.RESOURCE_TYPE_ATTRIBUTE, resourceType);
 
         // ===================== 阶段 2: Request Body =====================
         // 仅当 OpenAPI operation 声明了 application/json body 且 LLM 传了 body 时才有值

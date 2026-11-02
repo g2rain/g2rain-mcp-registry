@@ -3,8 +3,6 @@ package com.g2rain.mcp.registry.utils;
 import com.g2rain.common.exception.BusinessException;
 import com.g2rain.common.utils.Strings;
 import com.g2rain.mcp.registry.enums.McpErrorCode;
-import com.g2rain.mcp.registry.openapi.naming.EndpointStrategy;
-import com.g2rain.mcp.registry.openapi.naming.OperationIdStrategy;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -13,13 +11,14 @@ import java.util.HexFormat;
 import java.util.regex.Pattern;
 
 /**
- * MCP tool code 命名的公共工具类.
+ * MCP 工具名命名的公共工具类，供 {@link com.g2rain.mcp.registry.openapi.naming.EndpointStrategy} 使用.
  * <p>
- * 供 {@link EndpointStrategy} 和 {@link OperationIdStrategy} 共用, 封装三类能力:
+ * 封装三类能力:
  * </p>
  * <ol>
- *   <li><strong>路径清洗</strong> — {@link #sanitizePath(String)} / {@link #appendSegment(StringBuilder, String)}</li>
- *   <li><strong>长度限制</strong> — {@link #ensureMaxLength(String, String)}, 对齐 DB {@code varchar(256)}</li>
+ *   <li><strong>清洗</strong> — {@link #sanitize(String)}（服务标题）/ {@link #sanitizePath(String)}（路径），
+ *       只保留 ASCII 字母数字，驼峰边界与分隔符转 {@code _}，统一小写</li>
+ *   <li><strong>长度限制</strong> — {@link #ensureMaxLength(String, String)}，上限 64（OpenAI 兼容接口函数名上限）</li>
  *   <li><strong>唯一性保证</strong> — 超长截断时追加 SHA-256 前 8 位 hex, 避免碰撞</li>
  * </ol>
  * <p>
@@ -37,9 +36,9 @@ import java.util.regex.Pattern;
 public final class ToolNamingSupport {
 
     /**
-     * tool code 最大长度, 与 {@code mcp_tool_profile.code} 字段 varchar(256) 对齐.
+     * 工具名最大长度：OpenAI 兼容接口要求函数名不超过 64 个字符.
      */
-    private static final int MAX_TOOL_NAME_LENGTH = 256;
+    private static final int MAX_TOOL_NAME_LENGTH = 64;
 
     /**
      * 超长截断时 hash 后缀的 hex 字符数.
@@ -56,56 +55,34 @@ public final class ToolNamingSupport {
     }
 
     /**
-     * 将 URL 路径段清洗为小写下划线 identifier.
+     * 将文本清洗为小写下划线 identifier.
      * <p>
-     * 处理顺序: 先替换路径参数模板, 再逐字符转换分隔符.
-     * 开头连续的 {@code /} 不产生前导 {@code _}; 中间连续分隔符合并为单个 {@code _}.
+     * 只保留 ASCII 字母数字；驼峰边界插入 {@code _}（{@code serviceCode} → {@code service_code}，
+     * {@code HTTPServer} → {@code http_server}）；其余字符（含 {@code /}、{@code -}、{@code .}、空格、非 ASCII）
+     * 视为分隔符；连续 {@code _} 合并，去掉首尾 {@code _}.
      * </p>
      *
-     * @param path 原始路径, 如 {@code /users/{id}} 或 {@code //user/{id}}; blank 时返回空串
-     * @return 清洗后的片段, 如 {@code users_id}; 无可保留字符时返回空串
+     * @param text 原始文本，如 {@code g2rain-basis}；blank 时返回空串
+     * @return 清洗后的片段；无可保留字符时返回空串
      */
-    public static String sanitizePath(String path) {
-        if (Strings.isBlank(path)) {
+    public static String sanitize(String text) {
+        if (Strings.isBlank(text)) {
             return "";
         }
 
-        // 阶段 1: {id} / {id:regex} → _id, 只保留参数名
-        var normalized = PATH_PARAM.matcher(path.trim()).replaceAll(match -> {
-            var paramName = match.group(1).toLowerCase();
-            return "_" + paramName;
-        });
-
-        // 阶段 2: 逐字符转换分隔符, 字母数字保留并小写
-        var result = new StringBuilder(normalized.length());
-
-        for (int i = 0, j = normalized.length(); i < j; i++) {
-            char c = normalized.charAt(i);
-
-            if (c == '/') {
-                // / 变 _; 开头连续 / 因 result 为空而不追加, 避免前导 _
+        String source = text.trim();
+        var result = new StringBuilder(source.length() + 8);
+        for (int i = 0, j = source.length(); i < j; i++) {
+            char c = source.charAt(i);
+            if (!isAsciiLetterOrDigit(c)) {
                 appendUnderscore(result);
                 continue;
             }
 
-            if (c == '-' || c == '.') {
+            if (isCamelBoundary(source, i)) {
                 appendUnderscore(result);
-                continue;
             }
-
-            if (c == '_') {
-                // 合并连续 _ (含 / 与 {param} 替换产生的相邻 _)
-                appendUnderscore(result);
-                continue;
-            }
-
-            if (Character.isLetterOrDigit(c)) {
-                result.append(Character.toLowerCase(c));
-                continue;
-            }
-
-            // 其余特殊字符视为分隔符
-            appendUnderscore(result);
+            result.append(Character.toLowerCase(c));
         }
 
         trimTrailingUnderscore(result);
@@ -113,29 +90,22 @@ public final class ToolNamingSupport {
     }
 
     /**
-     * 将清洗后的路径片段追加到命名结果中.
+     * 将 OpenAPI 路径清洗为小写下划线 identifier.
      * <p>
-     * 若 {@code segment} 不以 {@code /} 开头, 会自动补前缀再清洗.
-     * blank 或清洗后为空时不追加.
+     * 先把路径参数模板 {@code {name}}、{@code {name:regex}} 替换为参数名，再按 {@link #sanitize(String)} 清洗.
      * </p>
      *
-     * @param result  已有命名 (如 method), 本方法会直接 mutate
-     * @param segment contextPath 或 path 原始值
+     * @param path 原始路径，如 {@code /resource_api/{serviceCode}/import}；blank 时返回空串
+     * @return 清洗后的片段，如 {@code resource_api_service_code_import}；无可保留字符时返回空串
      */
-    public static void appendSegment(StringBuilder result, String segment) {
-        if (Strings.isBlank(segment)) {
-            return;
+    public static String sanitizePath(String path) {
+        if (Strings.isBlank(path)) {
+            return "";
         }
 
-        // 无 leading / 的路径 (如 g2rain-basis) 补 / 后按统一规则清洗
-        var sanitized = sanitizePath(segment.startsWith("/") ? segment : "/" + segment);
-        if (sanitized.isEmpty()) {
-            return;
-        }
-
-        // 与已有片段 (如 method) 之间加 _
-        appendUnderscore(result);
-        result.append(sanitized);
+        // {id} / {id:regex} → /id，只保留参数名，大小写留给驼峰拆分
+        String normalized = PATH_PARAM.matcher(path.trim()).replaceAll(match -> "/" + match.group(1));
+        return sanitize(normalized);
     }
 
     /**
@@ -146,7 +116,7 @@ public final class ToolNamingSupport {
      * </p>
      *
      * @param name          策略产出的原始名称
-     * @param uniquenessKey 唯一性输入 (如 {@code get|/basis|/users/{id}} 或 operationId 原文)
+     * @param uniquenessKey 唯一性输入 (如 {@code native|g2rain_basis|get|/users/{id}})
      * @return 长度 {@code <=} {@link #MAX_TOOL_NAME_LENGTH} 的最终 tool code
      */
     public static String ensureMaxLength(String name, String uniquenessKey) {
@@ -154,13 +124,44 @@ public final class ToolNamingSupport {
             return name;
         }
 
-        // 超长: 保留可读前缀 + _ + 8位 hash, 总长 = 256
+        // 超长: 保留可读前缀 + _ + 8位 hash, 总长 = MAX_TOOL_NAME_LENGTH
         var hashSuffix = hashSuffix(uniquenessKey);
         var prefixMaxLength = MAX_TOOL_NAME_LENGTH - hashSuffix.length() - 1;
         var prefix = new StringBuilder(prefixMaxLength).append(name, 0, prefixMaxLength);
         // 截断点落在 _ 上时去掉, 避免 prefix_hash 出现双 _
         trimTrailingUnderscore(prefix);
         return prefix + "_" + hashSuffix;
+    }
+
+    /**
+     * ASCII 字母或数字.
+     */
+    private static boolean isAsciiLetterOrDigit(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+    }
+
+    /**
+     * 大写字母处是否为驼峰边界：前一个是小写或数字（{@code userId}），
+     * 或前一个是大写且后一个是小写（{@code HTTPServer} 的 {@code S}）.
+     */
+    private static boolean isCamelBoundary(String text, int index) {
+        char c = text.charAt(index);
+        if (c < 'A' || c > 'Z' || index == 0) {
+            return false;
+        }
+
+        char prev = text.charAt(index - 1);
+        if ((prev >= 'a' && prev <= 'z') || (prev >= '0' && prev <= '9')) {
+            return true;
+        }
+
+        boolean prevUpper = prev >= 'A' && prev <= 'Z';
+        if (!prevUpper || index + 1 >= text.length()) {
+            return false;
+        }
+
+        char next = text.charAt(index + 1);
+        return next >= 'a' && next <= 'z';
     }
 
     /**

@@ -141,6 +141,7 @@ public class McpGlobalExceptionFilter extends GlobalExceptionFilter {
             // 按行读取并拼接，兼容无换行的单行 JSON 请求体
             return reader.lines().collect(Collectors.joining());
         } catch (IOException e) {
+            log.error("failed to readRequestBody", e);
             // 请求体已被消费或 IO 异常时，无法提取 id
             return null;
         }

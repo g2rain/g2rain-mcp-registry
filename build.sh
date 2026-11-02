@@ -4,10 +4,10 @@ set -e
 # 切到脚本所在目录（确保在 g2rain-mcp-registry 根目录执行）
 cd "$(dirname "$0")"
 
-APP_IMAGE="g2rain/g2rain-mcp-registry"
+APP_IMAGE="${APP_IMAGE:-ghcr.io/g2rain/g2rain-mcp-registry}"
 
-# 第一个参数可选：指定 tag；不传时默认 latest
-TAG="${1:-latest}"
+# 第一个参数必须为显式 tag；发布策略不维护 latest。
+TAG="${1:?usage: ./build.sh <tag>}"
 
 echo "Building Docker image: ${APP_IMAGE}:${TAG}"
 
