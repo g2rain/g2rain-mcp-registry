@@ -3,10 +3,12 @@ package com.g2rain.mcp.registry.dao;
 import com.g2rain.data.isolation.annotations.DataIsolation;
 import com.g2rain.data.isolation.annotations.IgnoreIsolation;
 import com.g2rain.mcp.registry.dao.po.McpToolProfilePo;
+import com.g2rain.mcp.registry.dto.McpToolOptionSelectDto;
 import com.g2rain.mcp.registry.dto.McpToolProfileSelectDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -112,37 +114,44 @@ public interface McpToolProfileDao {
     List<McpToolProfilePo> selectListWithoutIsolation(McpToolProfileSelectDto selectDto);
 
     /**
-     * 名称冲突计数。
-     * <p>
-     * 共享工具（BUILT_IN / EXTENSION）：与任意未删除同名冲突。
-     * CUSTOMER：与共享工具及本机构 CUSTOMER 同名冲突。
-     * </p>
+     * 同一机构 + 同一资源类型下已占用的工具名（只取 id、name、service_id、method、path），导入时判重。
      *
-     * @param name         工具名
-     * @param resourceType 待写入的资源类型
-     * @param organId      CUSTOMER 时本机构；共享类型可空
-     * @param excludeId    更新时排除自身，可空
+     * @param resourceType 资源类型
+     * @param organId      机构
+     * @return 已占用工具
      */
     @IgnoreIsolation
-    int countNameConflict(@Param("name") String name,
-                          @Param("resourceType") String resourceType,
-                          @Param("organId") Long organId,
-                          @Param("excludeId") Long excludeId);
+    List<McpToolProfilePo> selectNameOwners(@Param("resourceType") String resourceType,
+                                           @Param("organId") Long organId);
 
     /**
-     * 冲突范围内已占用的工具名（导入批量校验用）。
+     * 按服务删除工具（服务删除时级联）。
      *
-     * @param resourceType 待写入的资源类型
-     * @param organId      CUSTOMER 时本机构
+     * @param serviceId 服务
+     * @return 删除条数
      */
     @IgnoreIsolation
-    List<String> selectConflictNames(@Param("resourceType") String resourceType,
-                                     @Param("organId") Long organId);
+    int deleteByServiceId(@Param("serviceId") Long serviceId);
 
     /**
-     * 按服务编码 + 机构软删工具（级联删外部服务用）。
+     * 技能选择工具：NATIVE、EXTENSION 全局，CUSTOMER 限 {@code organId}；只取启用的，只查选择所需列。
+     *
+     * @param query   类型、服务、关键字
+     * @param organId 当前机构
+     * @return 工具选项
      */
     @IgnoreIsolation
-    int deleteByServiceCodeAndOrganId(@Param("serviceCode") String serviceCode,
-                                      @Param("organId") Long organId);
+    List<McpToolProfilePo> selectOptions(@Param("query") McpToolOptionSelectDto query,
+                                         @Param("organId") Long organId);
+
+    /**
+     * 技能已绑定工具：按名字批量取元数据，可见范围同 {@link #selectOptions}。
+     *
+     * @param names   工具名
+     * @param organId 当前机构
+     * @return 工具元数据
+     */
+    @IgnoreIsolation
+    List<McpToolProfilePo> selectMetas(@Param("names") Collection<String> names,
+                                       @Param("organId") Long organId);
 }

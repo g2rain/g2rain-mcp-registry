@@ -20,17 +20,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class BuiltInApiPermissionTest {
+class NativeApiPermissionTest {
 
     private AnonymousApiPerm anonymousApiPerm;
     private UserApiPerm userApiPerm;
-    private BuiltInApiPermission permission;
+    private NativeApiPermission permission;
 
     @BeforeEach
     void setUp() {
         anonymousApiPerm = mock(AnonymousApiPerm.class);
         userApiPerm = mock(UserApiPerm.class);
-        permission = new BuiltInApiPermission(mock(PassportApiPerm.class), mock(MemberApiPerm.class),
+        permission = new NativeApiPermission(mock(PassportApiPerm.class), mock(MemberApiPerm.class),
             anonymousApiPerm, userApiPerm);
     }
 

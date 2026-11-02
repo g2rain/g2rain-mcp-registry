@@ -1,22 +1,20 @@
 package com.g2rain.mcp.registry.tool;
 
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.g2rain.common.exception.BusinessException;
+import com.g2rain.common.json.JsonCodec;
+import com.g2rain.common.json.JsonCodecFactory;
 import com.g2rain.common.utils.Strings;
 import com.g2rain.mcp.registry.catalog.OpenApiOperation;
 import com.g2rain.mcp.registry.context.McpRequestContext;
 import com.g2rain.mcp.registry.enums.McpErrorCode;
 import com.g2rain.mcp.registry.enums.ResourceType;
-import com.g2rain.mcp.registry.openapi.naming.NamingStrategy;
-import com.g2rain.mcp.registry.perm.BuiltInApiPermission;
+import com.g2rain.mcp.registry.perm.NativeApiPermission;
 import com.g2rain.mcp.registry.runtime.RuntimeToolCatalog;
 import com.g2rain.mcp.registry.schema.InputSchemaComposer;
 import com.g2rain.mcp.registry.tool.filter.RegisteredTool;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
-import io.swagger.v3.core.util.Json;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
@@ -49,11 +47,10 @@ public class ToolRegistry {
     private final ConcurrentHashMap<String, ResolvedTool> byCode = new ConcurrentHashMap<>();
 
     private final InputSchemaComposer inputSchemaComposer;
-    private final NamingStrategy namingStrategy;
     private final ToolHandler toolHandler;
     private final ToolSpecBuilder toolSpecBuilder;
     private final RuntimeToolCatalog runtimeToolCatalog;
-    private final BuiltInApiPermission builtInApiPermission;
+    private final NativeApiPermission nativeApiPermission;
 
     /**
      * 写入或热更新一条 {@link ResolvedTool}.
@@ -87,9 +84,9 @@ public class ToolRegistry {
     }
 
     /**
-     * 返回 {@code tools/list}：内存中的共享工具（BUILT_IN + EXTENSION）+ 当前租户的客户工具。
+     * 返回 {@code tools/list}：内存中的共享工具（NATIVE + EXTENSION）+ 当前租户的租户工具。
      * <p>
-     * 内置工具不在这里做权限过滤。权限在 {@code tools/call} 时校验。
+     * 原生工具不在这里做权限过滤。权限在 {@code tools/call} 时校验。
      * </p>
      */
     public List<McpSchema.Tool> listTools(McpRequestContext context, Set<String> allowlist) {
@@ -115,16 +112,16 @@ public class ToolRegistry {
     /**
      * 按 name 查找可执行规格。
      * <p>
-     * 内存中的 BUILT_IN 无权限时抛出 {@link BusinessException}；EXTENSION 不鉴权。
+     * 内存中的 NATIVE 无权限时抛出 {@link BusinessException}；EXTENSION 不鉴权。
      * 未命中内存时再查当前机构 CUSTOMER。
      * </p>
      */
     public Optional<McpServerFeatures.SyncToolSpecification> findToolSpec(McpRequestContext context, String toolName) {
         var resolvedTool = byCode.get(toolName);
         if (Objects.nonNull(resolvedTool)) {
-            if (ResourceType.BUILT_IN.name().equals(resolvedTool.resourceType())) {
-                builtInApiPermission.check(resolvedTool.sourceId());
-                log.debug("findToolSpec built-in, sessionId={}, name={}", context.sessionId(), toolName);
+            if (ResourceType.NATIVE.name().equals(resolvedTool.resourceType())) {
+                nativeApiPermission.check(resolvedTool.sourceId());
+                log.debug("findToolSpec native, sessionId={}, name={}", context.sessionId(), toolName);
             } else {
                 log.debug("findToolSpec shared, sessionId={}, name={}, type={}",
                     context.sessionId(), toolName, resolvedTool.resourceType());
@@ -136,53 +133,56 @@ public class ToolRegistry {
 
     /**
      * profile 加载 / 热更入口: OpenAPI operation → 注册进内存缓存.
+     *
+     * @param profileId    档案主键
+     * @param name         工具名
+     * @param sourceId     NATIVE 的 resource_api.id，其余为空
+     * @param resourceType 资源类型名
+     * @param operation    运行时操作
+     * @param inputSchema  档案中的 MCP inputSchema JSON
      */
-    public void register(Long profileId, String code, @Nullable Long sourceId, String resourceType,
-                         OpenApiOperation operation) {
-        var registeredTool = buildRegisteredTool(code, operation);
+    public void register(Long profileId, String name, @Nullable Long sourceId, String resourceType,
+                         OpenApiOperation operation, String inputSchema) {
+        var registeredTool = buildRegisteredTool(name, resourceType, operation, inputSchema);
         var toolSpec = toolSpecBuilder.buildSyncToolSpec(registeredTool);
-        put(new ResolvedTool(profileId, code, sourceId, resourceType, toolSpec));
+        put(new ResolvedTool(profileId, name, sourceId, resourceType, toolSpec));
     }
 
     /**
-     * 按指定工具名组装可执行规格，供客户工具在调用时现装。
+     * 组装可执行规格，供租户工具在调用时现装。
+     *
+     * @param name         工具名
+     * @param resourceType 资源类型名
+     * @param operation    运行时操作
+     * @param inputSchema  档案中的 MCP inputSchema JSON
+     * @return 可执行规格
      */
-    public McpServerFeatures.SyncToolSpecification specification(String toolName, OpenApiOperation operation) {
-        return toolSpecBuilder.buildSyncToolSpec(buildRegisteredTool(toolName, operation));
+    public McpServerFeatures.SyncToolSpecification specification(String name, String resourceType,
+                                                                  OpenApiOperation operation, String inputSchema) {
+        return toolSpecBuilder.buildSyncToolSpec(buildRegisteredTool(name, resourceType, operation, inputSchema));
     }
 
     /**
-     * {@code toolName} 有值时用档案里的名称；空白则按命名策略现算。
+     * 组装注册工具：名称、inputSchema 取档案（导入时按文档版本生成），调用时按 Operation 分解参数。
+     *
+     * @param name         工具名
+     * @param resourceType 资源类型名，随出站请求带给拦截器做计量、审计
+     * @param operation    运行时操作
+     * @param inputSchema  档案中的 MCP inputSchema JSON
+     * @return 注册工具
      */
-    public RegisteredTool buildRegisteredTool(@Nullable String toolName, OpenApiOperation operation) {
-        var resolvedName = Strings.isNotBlank(toolName) ? toolName : determineToolName(operation);
-        var tool = McpSchema.Tool.builder(resolvedName, resolveJsonSchema(operation))
-            .title(resolveTitle(operation, resolvedName))
+    public RegisteredTool buildRegisteredTool(String name, String resourceType, OpenApiOperation operation,
+                                              String inputSchema) {
+        var tool = McpSchema.Tool.builder(name, resolveJsonSchema(name, inputSchema))
+            .title(resolveTitle(operation, name))
             .description(buildDescription(operation))
             .build();
-
         return new RegisteredTool(tool, (context, callToolReq) -> {
             var httpReqSpec = inputSchemaComposer.decompose(
                 callToolReq, operation.operation()
             );
-
-            return toolHandler.execute(context, httpReqSpec, operation);
+            return toolHandler.execute(context, httpReqSpec, operation, resourceType);
         });
-    }
-
-    private String determineToolName(OpenApiOperation operation) {
-        try {
-            return namingStrategy.name(operation);
-        } catch (BusinessException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new BusinessException(
-                McpErrorCode.NAME_CANNOT_BE_DETERMINED,
-                operation.method(),
-                operation.path(),
-                exception.getMessage()
-            );
-        }
     }
 
     private String resolveTitle(OpenApiOperation operation, String toolName) {
@@ -190,40 +190,20 @@ public class ToolRegistry {
         return Objects.nonNull(summary) ? summary : toolName;
     }
 
+    private static final JsonCodec JSON = JsonCodecFactory.instance();
+
     private static final Map<String, Object> EMPTY_OBJECT_SCHEMA = Map.of("type", "object");
 
-    private static final TypeReference<Map<String, Object>> INPUT_SCHEMA_TYPE = new TypeReference<>() {
-
-    };
-
-    private Map<String, Object> resolveJsonSchema(OpenApiOperation operation) {
-        var composedSchema = inputSchemaComposer.compose(operation);
-        if (Objects.isNull(composedSchema)) {
+    private Map<String, Object> resolveJsonSchema(String name, @Nullable String inputSchema) {
+        if (Strings.isBlank(inputSchema)) {
             return EMPTY_OBJECT_SCHEMA;
         }
 
         try {
-            var mapper = Json.mapper();
-            var stringSchemaRepresentation = mapper.writeValueAsString(composedSchema);
-            log.debug(
-                "Resolved JSON schema for operation {}: {}",
-                operation.operation().getOperationId(),
-                stringSchemaRepresentation
-            );
-            return mapper.readValue(stringSchemaRepresentation, INPUT_SCHEMA_TYPE);
-        } catch (JsonProcessingException exception) {
-            log.error(
-                "Failed to resolve JSON schema for operation: {}",
-                operation.operation().getOperationId(),
-                exception
-            );
-            throw new BusinessException(
-                McpErrorCode.JSON_SCHEMA_RESOLVE_FAILED,
-                null,
-                new Object[]{operation.operation().getOperationId()},
-                null,
-                exception
-            );
+            return JSON.str2map(inputSchema);
+        } catch (RuntimeException exception) {
+            log.error("Failed to resolve JSON schema for tool: {}", name, exception);
+            throw new BusinessException(McpErrorCode.JSON_SCHEMA_RESOLVE_FAILED, name);
         }
     }
 

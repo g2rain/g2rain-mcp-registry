@@ -26,27 +26,17 @@ public class McpExternalServicePo extends BasePo {
     private Long organId;
 
     /**
-     * 服务编码
-     */
-    private String code;
-
-    /**
      * 服务名称
      */
     private String name;
 
     /**
-     * 调用基址(http/https)
+     * 调用基址(http/https，含上下文路径)
      */
     private String endpoint;
 
     /**
-     * 上下文路径
-     */
-    private String contextPath;
-
-    /**
-     * 资源类型[EXTENSION:扩展系统, CUSTOMER:客户系统]
+     * 资源类型[EXTENSION:扩展系统, CUSTOMER:租户系统]
      */
     private String resourceType;
 

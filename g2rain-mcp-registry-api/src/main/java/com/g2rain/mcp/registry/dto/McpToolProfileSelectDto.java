@@ -41,21 +41,21 @@ public class McpToolProfileSelectDto extends BaseSelectListDto {
     private String title;
 
     /**
-     * 资源类型[BUILT_IN:自有系统, EXTENSION:扩展系统, CUSTOMER:客户系统]
+     * 资源类型[NATIVE:原生系统, EXTENSION:扩展系统, CUSTOMER:租户系统]
      */
-    @Schema(description = "资源类型[BUILT_IN:自有系统, EXTENSION:扩展系统, CUSTOMER:客户系统]")
+    @Schema(description = "资源类型[NATIVE:原生系统, EXTENSION:扩展系统, CUSTOMER:租户系统]")
     private String resourceType;
 
     /**
-     * 所属服务编码(BUILT_IN→basis.service_registry; 其余→mcp_external_service.code)
+     * 所属服务(NATIVE→basis.service_registry.id; 其余→mcp_external_service.id)
      */
-    @Schema(description = "所属服务编码(BUILT_IN→basis.service_registry; 其余→mcp_external_service.code)")
-    private String serviceCode;
+    @Schema(description = "所属服务(NATIVE→basis.service_registry.id; 其余→mcp_external_service.id)")
+    private Long serviceId;
 
     /**
-     * 来源标识(仅BUILT_IN=basis.resource_api.id)
+     * 来源标识(仅NATIVE=basis.resource_api.id)
      */
-    @Schema(description = "来源标识(仅BUILT_IN=basis.resource_api.id)")
+    @Schema(description = "来源标识(仅NATIVE=basis.resource_api.id)")
     private Long sourceId;
 
     /**
@@ -81,12 +81,6 @@ public class McpToolProfileSelectDto extends BaseSelectListDto {
      */
     @Schema(description = "Tool说明(给LLM)")
     private String description;
-
-    /**
-     * OpenAPI Operation(compose/decompose)
-     */
-    @Schema(description = "OpenAPI Operation(compose/decompose)")
-    private String openapiOperation;
 
     /**
      * MCP inputSchema

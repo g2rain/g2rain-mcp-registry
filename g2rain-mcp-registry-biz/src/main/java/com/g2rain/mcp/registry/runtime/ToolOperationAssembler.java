@@ -1,20 +1,27 @@
 package com.g2rain.mcp.registry.runtime;
 
-
 import com.g2rain.common.utils.Strings;
 import com.g2rain.mcp.registry.catalog.OpenApiOperation;
 import com.g2rain.mcp.registry.dao.po.McpToolProfilePo;
-import com.g2rain.mcp.registry.openapi.naming.EndpointStrategy;
-import io.swagger.v3.core.util.Json;
+import io.swagger.parser.OpenAPIParser;
+import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.parser.core.models.ParseOptions;
+import io.swagger.v3.parser.core.models.SwaggerParseResult;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
+import java.util.Locale;
 import java.util.Objects;
 
 /**
- * 把工具档案和调用地址收成一条 {@link OpenApiOperation}。
+ * 把工具档案和调用基址收成一条 {@link OpenApiOperation}。
+ * <p>
+ * 档案的 {@code openapi_document} 是单接口文档，交给 {@link OpenAPIParser} 解析，解析器按文档的 {@code openapi}
+ * 字段自动以 3.0 或 3.1 读取；文档中 {@code $ref} 已展开，这里不再展开。
+ * </p>
  *
  * @author alpha
  * @since 2026/10/16
@@ -23,42 +30,58 @@ import java.util.Objects;
 @Component
 public class ToolOperationAssembler {
 
+    private final OpenAPIParser parser = new OpenAPIParser();
+
     /**
      * 组装运行时操作。
      *
-     * @param profile     工具档案
-     * @param endpoint    服务地址
-     * @param contextPath 上下文路径
+     * @param profile  工具档案
+     * @param endpoint 调用基址
      * @return 可注册的操作；方法或文档无法解析时返回 {@code null}
      */
-    public OpenApiOperation assemble(McpToolProfilePo profile, String endpoint, String contextPath) {
-        if (Objects.isNull(profile) || Strings.isBlank(endpoint) || Strings.isBlank(profile.getPath()) || Strings.isBlank(profile.getMethod())) {
+    public @Nullable OpenApiOperation assemble(McpToolProfilePo profile, @Nullable String endpoint) {
+        if (Objects.isNull(profile) || Strings.isBlank(endpoint) || Strings.isBlank(profile.getPath())
+            || Strings.isBlank(profile.getMethod())) {
             return null;
         }
+
         PathItem.HttpMethod method;
         try {
-            method = PathItem.HttpMethod.valueOf(profile.getMethod());
+            method = PathItem.HttpMethod.valueOf(profile.getMethod().trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
             log.warn("工具 HTTP 方法无法解析 name={} method={}", profile.getName(), profile.getMethod());
             return null;
         }
-        Operation operation = readOperation(profile);
+
+        Operation operation = readOperation(profile, method);
         if (Objects.isNull(operation)) {
             return null;
         }
-        String path = profile.getPath().startsWith("/") ? profile.getPath() : "/" + profile.getPath();
-        String callBase = new ServiceEndpointCache.Endpoint(endpoint, Strings.isBlank(contextPath) ? "" : contextPath).callBase();
-        String serviceSegment = EndpointStrategy.resolveServiceSegment(profile.getResourceType(), profile.getServiceCode());
-        return new OpenApiOperation(callBase, contextPath, path, method, operation, serviceSegment);
+
+        return new OpenApiOperation(endpoint, profile.getPath(), method, operation);
     }
 
-    private Operation readOperation(McpToolProfilePo profile) {
-        if (Strings.isBlank(profile.getOpenapiOperation())) {
-            return new Operation();
+    /**
+     * 解析单接口文档，取出档案 path + method 对应的 Operation。
+     */
+    private @Nullable Operation readOperation(McpToolProfilePo profile, PathItem.HttpMethod method) {
+        if (Strings.isBlank(profile.getOpenapiDocument())) {
+            log.warn("工具缺少 OpenAPI 文档 name={}", profile.getName());
+            return null;
         }
+
         try {
-            return Json.mapper().readValue(profile.getOpenapiOperation(), Operation.class);
-        } catch (Exception ex) {
+            SwaggerParseResult result = parser.readContents(profile.getOpenapiDocument(), null, new ParseOptions());
+            OpenAPI openAPI = result.getOpenAPI();
+            PathItem pathItem = Objects.isNull(openAPI) || Objects.isNull(openAPI.getPaths())
+                ? null : openAPI.getPaths().get(profile.getPath());
+            Operation operation = Objects.isNull(pathItem) ? null : pathItem.readOperationsMap().get(method);
+            if (Objects.isNull(operation)) {
+                log.warn("工具 OpenAPI 文档中找不到接口 name={} method={} path={}",
+                    profile.getName(), method, profile.getPath());
+            }
+            return operation;
+        } catch (RuntimeException ex) {
             log.warn("工具 OpenAPI 无法解析 name={}", profile.getName(), ex);
             return null;
         }

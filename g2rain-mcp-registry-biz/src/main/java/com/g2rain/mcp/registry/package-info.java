@@ -17,11 +17,12 @@
  * 把一条 OpenAPI 操作变成内存里可 list、可 call 的 Tool:
  * </p>
  * <pre>{@code
- * OpenApiOperation
+ * McpToolProfile（name、inputSchema、openapi_document）
+ *   -> ToolOperationAssembler.assemble       // 解析单接口文档, 得到 OpenApiOperation
  *   -> ToolRegistry.register
  *   -> ToolRegistry.buildRegisteredTool
- *        -> NamingStrategy.name              // 生成 tool code, 如 get_self_g2rain_basis_users_id
- *        -> InputSchemaComposer.compose      // 生成 MCP inputSchema
+ *        -> 档案 name                         // 导入时由 EndpointStrategy 生成, 如 native_g2rain_basis_get_users_id
+ *        -> 档案 inputSchema                  // 导入时由 InputSchemaComposer.compose 生成
  *        -> RegisteredTool                   // 元数据 + 末级执行函数
  *   -> ToolSpecBuilder.buildSyncToolSpec
  *        -> ToolCallFilterChains.of           // RegisteredTool + 横切 Filter 排序成链
@@ -41,11 +42,11 @@
  *   -> McpRequestContexts.of(exchange)        // 组装 HTTP + 会话上下文
  *   -> McpToolListHandler.handle
  *   -> ToolRegistry.listTools
- *        -> byCode 中共享工具 + RuntimeToolCatalog 客户工具
+ *        -> byCode 中共享工具 + RuntimeToolCatalog 租户工具
  *   -> ListToolsResult                        // 返回 name / title / inputSchema 等
  * }</pre>
  * <p>
- * 内置工具权限在 {@code tools/call} 时校验，list 不按 sourceId 过滤。
+ * 原生工具权限在 {@code tools/call} 时校验，list 不按 sourceId 过滤。
  * </p>
  *
  * <h3>三、{@code tools/call} 调用链路（客户端「执行某个 Tool」）</h3>

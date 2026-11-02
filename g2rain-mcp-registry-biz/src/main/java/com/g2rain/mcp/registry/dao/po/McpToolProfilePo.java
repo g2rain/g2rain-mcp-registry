@@ -36,17 +36,17 @@ public class McpToolProfilePo extends BasePo {
     private String title;
 
     /**
-     * 资源类型[BUILT_IN:自有系统, EXTENSION:扩展系统, CUSTOMER:客户系统]
+     * 资源类型[NATIVE:原生系统, EXTENSION:扩展系统, CUSTOMER:租户系统]
      */
     private String resourceType;
 
     /**
-     * 所属服务编码(BUILT_IN→basis.service_registry; 其余→mcp_external_service.code)
+     * 所属服务(NATIVE→basis.service_registry.id; 其余→mcp_external_service.id)
      */
-    private String serviceCode;
+    private Long serviceId;
 
     /**
-     * 来源标识(仅BUILT_IN=basis.resource_api.id)
+     * 来源标识(仅NATIVE=basis.resource_api.id)
      */
     private Long sourceId;
 
@@ -71,9 +71,9 @@ public class McpToolProfilePo extends BasePo {
     private String description;
 
     /**
-     * OpenAPI Operation(compose/decompose)
+     * 单接口OpenAPI文档(含openapi版本、info与单个path+method, $ref已展开)
      */
-    private String openapiOperation;
+    private String openapiDocument;
 
     /**
      * MCP inputSchema

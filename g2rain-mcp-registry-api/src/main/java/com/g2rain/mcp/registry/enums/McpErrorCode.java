@@ -17,23 +17,23 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "MCP 模块错误码枚举")
 public enum McpErrorCode implements ErrorCode {
 
-    @Schema(description = "无法确定 Tool 名称")
-    NAME_CANNOT_BE_DETERMINED("mcp.40001", "Unable to register tool for operation: {0:method} {1:path}. Error determining tool name: {2:message}"),
-
     @Schema(description = "缺少 tools/call 请求")
     MISSING_CALL_TOOL_REQUEST("mcp.40002", "Missing tools/call request"),
 
     @Schema(description = "未知 Tool")
     UNKNOWN_TOOL("mcp.40003", "Unknown tool: {0:toolName}"),
 
-    @Schema(description = "operationId 无效，无法命名")
-    OPERATION_ID_INVALID("mcp.40004", "Invalid operationId for tool naming: {0:message}"),
-
     @Schema(description = "无法从 path 推导 Tool 名称")
     ENDPOINT_NAME_INVALID("mcp.40005", "Cannot derive tool name from path: {0:path}"),
 
+    @Schema(description = "文档标题无法作为服务编码")
+    SERVICE_TITLE_INVALID("mcp.40006", "OpenAPI info.title cannot be used as service code (letters or digits required): {0:title}"),
+
+    @Schema(description = "工具名已被其他服务占用")
+    TOOL_NAME_CONFLICT("mcp.40007", "Tool {0:name} is already imported by service {1:service}"),
+
     @Schema(description = "JSON Schema 解析失败")
-    JSON_SCHEMA_RESOLVE_FAILED("mcp.50001", "Failed to resolve JSON schema for operation: {0:operationId}"),
+    JSON_SCHEMA_RESOLVE_FAILED("mcp.50001", "Failed to resolve JSON schema for tool: {0:name}"),
 
     @Schema(description = "Tool call Filter 链耗尽")
     TOOL_FILTER_CHAIN_EXHAUSTED("mcp.50002", "Tool call filter chain exhausted without returning a response"),

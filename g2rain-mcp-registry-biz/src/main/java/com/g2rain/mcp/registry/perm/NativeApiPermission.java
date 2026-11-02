@@ -14,10 +14,10 @@ import org.springframework.stereotype.Component;
 import java.util.Objects;
 
 /**
- * 内置工具调用前的接口权限校验。
+ * 原生工具调用前的接口权限校验。
  * <p>
  * 分支与网关 {@code ApiPermissionFilter} 一致：账号看共用权限，会员和匿名访客看机构权限，用户看应用下的授权状态。
- * 扩展工具和客户工具不走这里。
+ * 扩展工具和租户工具不走这里。
  * </p>
  *
  * @author alpha
@@ -25,7 +25,7 @@ import java.util.Objects;
  */
 @Component
 @Slf4j
-public class BuiltInApiPermission {
+public class NativeApiPermission {
 
     private final PassportApiPerm passportApiPerm;
 
@@ -41,7 +41,7 @@ public class BuiltInApiPermission {
      * @param anonymousApiPerm 匿名访客权限
      * @param userApiPerm     用户权限
      */
-    public BuiltInApiPermission(PassportApiPerm passportApiPerm, MemberApiPerm memberApiPerm,
+    public NativeApiPermission(PassportApiPerm passportApiPerm, MemberApiPerm memberApiPerm,
                                 AnonymousApiPerm anonymousApiPerm, UserApiPerm userApiPerm) {
         this.passportApiPerm = passportApiPerm;
         this.memberApiPerm = memberApiPerm;
@@ -50,9 +50,9 @@ public class BuiltInApiPermission {
     }
 
     /**
-     * 校验当前登录身份能否调用这个内置接口。
+     * 校验当前登录身份能否调用这个原生接口。
      *
-     * @param apiId {@code resource_api.id}，也就是内置工具的 {@code sourceId}
+     * @param apiId {@code resource_api.id}，也就是原生工具的 {@code sourceId}
      * @throws BusinessException 未登录、身份不完整或没有权限
      */
     public void check(Long apiId) {
