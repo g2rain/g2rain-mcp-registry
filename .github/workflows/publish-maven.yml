@@ -1,0 +1,74 @@
+name: Publish API to GitHub Maven Packages
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: maven-api-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out selected commit
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Set up JDK 25 and Maven authentication
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          server-id: github
+      - name: Configure G2rain dependency and deploy repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          settings_path="$RUNNER_TEMP/g2rain-maven-settings.xml"
+          python3 - "$settings_path" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.Element('settings', xmlns='http://maven.apache.org/SETTINGS/1.0.0')
+          servers = ET.SubElement(root, 'servers')
+          for name in ('github', 'g2rain-common'):
+              server = ET.SubElement(servers, 'server')
+              ET.SubElement(server, 'id').text = name
+              ET.SubElement(server, 'username').text = '${env.GITHUB_ACTOR}'
+              ET.SubElement(server, 'password').text = '${env.GITHUB_TOKEN}'
+          profile = ET.SubElement(ET.SubElement(root, 'profiles'), 'profile')
+          ET.SubElement(profile, 'id').text = 'g2rain-packages'
+          repository = ET.SubElement(ET.SubElement(profile, 'repositories'), 'repository')
+          ET.SubElement(repository, 'id').text = 'g2rain-common'
+          ET.SubElement(repository, 'url').text = 'https://maven.pkg.github.com/g2rain/g2rain-common'
+          ET.SubElement(ET.SubElement(repository, 'releases'), 'enabled').text = 'true'
+          ET.SubElement(ET.SubElement(repository, 'snapshots'), 'enabled').text = 'false'
+          ET.SubElement(ET.SubElement(root, 'activeProfiles'), 'activeProfile').text = 'g2rain-packages'
+          ET.ElementTree(root).write(sys.argv[1], encoding='utf-8', xml_declaration=True)
+          PY
+          chmod 600 "$settings_path"
+          echo "MAVEN_SETTINGS=$settings_path" >> "$GITHUB_ENV"
+          echo 'Configured g2rain-common dependency repository and github deploy server.'
+      - name: Require selected commit in release branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Selected commit is not in origin/main." >&2
+            exit 1
+          fi
+      - name: Build, verify and publish parent POM and API
+        run: >-
+          mvn --settings "$MAVEN_SETTINGS" --batch-mode --no-transfer-progress
+          -pl g2rain-mcp-registry-api -am clean deploy
+          -DaltDeploymentRepository=github::https://maven.pkg.github.com/g2rain/g2rain-mcp-registry

@@ -65,16 +65,23 @@
                 <version>${jib.maven.plugin.version}</version>
                 <configuration>
                     <from>
-                        <image>docker://eclipse-temurin:25.0.4.1_1-jre</image>
+                        <image>eclipse-temurin:25.0.4.1_1-jre</image>
                     </from>
                     <to>
-                        <image>g2rain/g2rain-mcp-registry:${project.version}</image>
+                        <image>ghcr.io/g2rain/g2rain-mcp-registry:${project.version}</image>
                     </to>
                     <container>
                         <mainClass>com.g2rain.mcp.registry.Application</mainClass>
                         <ports>
                             <port>8080</port>
                         </ports>
+                        <labels>
+                            <org.opencontainers.image.source>https://github.com/g2rain/g2rain-mcp-registry</org.opencontainers.image.source>
+                            <org.opencontainers.image.url>https://github.com/g2rain/g2rain-mcp-registry</org.opencontainers.image.url>
+                            <org.opencontainers.image.title>g2rain-mcp-registry</org.opencontainers.image.title>
+                            <org.opencontainers.image.version>${project.version}</org.opencontainers.image.version>
+                            <org.opencontainers.image.licenses>Apache-2.0</org.opencontainers.image.licenses>
+                        </labels>
                     </container>
                 </configuration>
             </plugin>
