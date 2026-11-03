@@ -111,6 +111,8 @@ mvn -pl g2rain-mcp-registry-startup -am spring-boot:run "-Dspring-boot.run.profi
 
 完整的 GHCR 权限、首次公开、发布顺序、配置与部署说明见[构建与部署](docs/operations/deployment.md)。
 
+镜像成功发布后，工作流继续发布 `com.g2rain:g2rain-mcp-registry-api:1.0.0` 及其父 POM 到 [GitHub Maven Packages](https://maven.pkg.github.com/g2rain/g2rain-mcp-registry)；API 工作流也支持手动运行，所选提交须在 `main` 历史中。消费方需要配置仓库与读取凭据，详见[部署文档](docs/operations/deployment.md#api-maven-packages-发布)。
+
 ## 协作关系
 
 - **Agent Studio** 负责在 Agent 配置中选择和组合工具能力。
