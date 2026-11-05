@@ -23,7 +23,9 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -83,6 +85,11 @@ public class ToolHandler {
      * 下游返回 2xx 但 body 为空时的默认成功 JSON, 避免 MCP 客户端收到空 content.
      */
     private static final String DEFAULT_SUCCESS_RESPONSE = "{\"message\":\"Tool call completed successfully\"}";
+
+    /**
+     * query 值的模板变量名前缀, 避免与 path 参数名冲突.
+     */
+    private static final String QUERY_VARIABLE_PREFIX = "__query_";
 
     /**
      * 出站 HTTP 客户端选择器: {@code lb://} 走负载均衡, {@code http(s)://} 直连.
@@ -300,10 +307,12 @@ public class ToolHandler {
             .uri(_ -> {
                 // 基址: service_registry.endpoint, 如 lb://g2rain-basis 或 http://10.0.0.1:8080
                 var builder = UriComponentsBuilder.fromUriString(operation.endpoint()).path(operation.path());
+                // 模板变量: path 参数 + query 占位值, 值在 expand 时按变量严格编码
+                Map<String, Object> variables = new HashMap<>(httpRequestSpec.parameters().path());
                 // query: MCP arguments 里的 query 参数 → ?key=value
-                httpRequestSpec.parameters().query().forEach((name, value) -> addQueryParameter(builder, name, value));
+                httpRequestSpec.parameters().query().forEach((name, value) -> addQueryParameter(builder, variables, name, value));
                 // path 模板变量: /users/{id} + {id=123} → /users/123
-                return builder.build(httpRequestSpec.parameters().path());
+                return builder.build(variables);
             })
             // 进程内请求属性: 供出站拦截器按资源类型计量 / 审计, 不写入 header, 下游收不到
             .attribute(McpConstants.RESOURCE_TYPE_ATTRIBUTE, resourceType);
@@ -440,29 +449,83 @@ public class ToolHandler {
     /**
      * 向 URI 追加 query 参数.
      * <p>
-     * 当前仅支持 OpenAPI 默认 style {@code form} 且 {@code explode=true}:
-     * 数组值展开为多个同名 query 参数.
+     * 按 OpenAPI 默认 style {@code form} 且 {@code explode=true} 展开:
+     * </p>
+     * <ul>
+     *   <li>单值: {@code ?name=value}</li>
+     *   <li>数组: 同名参数重复出现 {@code ?tag=a&tag=b}</li>
+     *   <li>对象: 按属性展开 {@code ?title=a&organId=3}, 不带参数名本身; 嵌套对象以 {@code .} 连接属性路径</li>
+     * </ul>
+     * <p>
+     * 值以模板变量占位, 在 {@code build} 时统一严格编码, 避免值中的 {@code & = + { }} 破坏 URI.
      * </p>
      *
      * @param uriBuilder URI 构建器
+     * @param variables  模板变量 (path 参数 + query 占位值)
      * @param name       参数名
-     * @param value      单值或 {@link Iterable} 多值
+     * @param value      单值、{@link Iterable} 多值或 {@link Map} 对象
      */
-    private void addQueryParameter(UriBuilder uriBuilder, String name, Object value) {
-        // 单值: 直接 append 一个 queryParam
-        if (!(value instanceof Iterable<?> items)) {
-            uriBuilder.queryParam(name, value.toString());
+    private void addQueryParameter(UriBuilder uriBuilder, Map<String, Object> variables, String name, @Nullable Object value) {
+        if (Objects.isNull(value)) {
+            return;
+        }
+
+        // 对象: 按属性展开, 嵌套属性用 "." 连接 (Spring 数据绑定可识别)
+        if (value instanceof Map<?, ?> properties) {
+            properties.forEach((key, item) -> addObjectProperty(
+                uriBuilder, variables, String.valueOf(key), item)
+            );
+
             return;
         }
 
         // 数组/集合: explode=true → 同名参数重复出现 (?tag=a&tag=b)
-        for (var item : items) {
-            if (Objects.isNull(item)) {
-                continue;
+        if (value instanceof Iterable<?> items) {
+            for (var item : items) {
+                if (Objects.nonNull(item)) {
+                    appendQueryValue(uriBuilder, variables, name, item);
+                }
             }
 
-            uriBuilder.queryParam(name, item.toString());
+            return;
         }
+
+        appendQueryValue(uriBuilder, variables, name, value);
+    }
+
+    /**
+     * 展开对象的一个属性; 属性值为对象时继续以 {@code 父.子} 展开.
+     *
+     * @param uriBuilder URI 构建器
+     * @param variables  模板变量
+     * @param path       属性路径
+     * @param value      属性值
+     */
+    private void addObjectProperty(UriBuilder uriBuilder, Map<String, Object> variables, String path, @Nullable Object value) {
+        if (value instanceof Map<?, ?> properties) {
+            properties.forEach((key, item) -> addObjectProperty(
+                uriBuilder, variables, path + "." + key, item
+            ));
+
+            return;
+        }
+
+        addQueryParameter(uriBuilder, variables, path, value);
+    }
+
+    /**
+     * 以模板变量占位追加一个 query 值.
+     *
+     * @param uriBuilder URI 构建器
+     * @param variables  模板变量
+     * @param name       参数名
+     * @param value      非空值
+     */
+    private void appendQueryValue(UriBuilder uriBuilder, Map<String, Object> variables, String name, Object value) {
+        // 占位名带前缀, 不与 path 参数名冲突
+        String placeholder = QUERY_VARIABLE_PREFIX + variables.size();
+        variables.put(placeholder, value.toString());
+        uriBuilder.queryParam(name, "{" + placeholder + "}");
     }
 
     /**
