@@ -97,6 +97,13 @@ public class ToolRegistry {
                 tools.put(tool.name(), tool);
             }
         }
+
+        // allowlist 指定了工具，且内存（NATIVE+EXTENSION）已全部命中 → 不查租户库
+        if (!allowlist.isEmpty() && tools.keySet().containsAll(allowlist)) {
+            log.debug("listTools sessionId={} size={}", context.sessionId(), tools.size());
+            return List.copyOf(tools.values());
+        }
+
         for (McpSchema.Tool tool : runtimeToolCatalog.list()) {
             if (tools.containsKey(tool.name())) {
                 continue;
@@ -105,6 +112,7 @@ public class ToolRegistry {
                 tools.put(tool.name(), tool);
             }
         }
+
         log.debug("listTools sessionId={} size={}", context.sessionId(), tools.size());
         return List.copyOf(tools.values());
     }
