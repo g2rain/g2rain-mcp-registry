@@ -58,6 +58,9 @@ g2rain:
   mcp:
     registry:
       progress-notification-interval-ms: 1
+      # tools/call 出站调用业务接口的读超时（6 分钟）：只用于回收挂住的线程与连接；
+      # 须大于 agent-runtime 的 mcp.read-timeout-ms（5 分钟），让调用方先超时并按「结果不确定」处理
+      tool-read-timeout-ms: 360000
 
 # g2rain-starter-spring-doc 已经实现, 但是未发版, 暂自行配置
 springdoc:
