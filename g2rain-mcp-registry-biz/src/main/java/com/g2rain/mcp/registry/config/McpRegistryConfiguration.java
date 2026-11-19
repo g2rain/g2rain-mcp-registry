@@ -19,7 +19,10 @@ import org.springframework.boot.restclient.autoconfigure.RestClientBuilderConfig
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
 
 /**
  * g2rain MCP Registry 可替换扩展点的默认 Bean 装配.
@@ -33,7 +36,7 @@ import org.springframework.web.client.RestClient;
  *   <li>{@link ErrorModelProvider} — 下游 HTTP 网络失败时的错误 JSON 结构（默认 {@link DefaultErrorModelProvider}）</li>
  *   <li>{@link MetricRecorder} — tool/HTTP 调用计数与耗时（默认 {@link NoOpMetricRecorder}, 不输出指标）</li>
  *   <li>{@link ProgressUpdateProvider} — 长耗时 call 的 MCP 进度通知文案（默认 {@link DefaultProgressUpdateProvider}）</li>
- *   <li>{@link ToolRestClients} — {@code tools/call} 出站 HTTP（{@code lb://} 负载均衡 + {@code http(s)://} 直连）</li>
+ *   <li>{@link ToolRestClients} — {@code tools/call} 出站 HTTP（{@code lb://} 负载均衡 + {@code http(s)://} 直连；读超时见 {@code g2rain.mcp.registry.tool-read-timeout-ms}）</li>
  *   <li>{@link NotificationTicker} — 进度通知循环节拍（见 {@code g2rain.mcp.registry.progress-notification-interval-ms}）</li>
  *   <li>{@link ToolHandler} — MCP tool call 下游 HTTP 执行器</li>
  * </ul>
@@ -52,6 +55,12 @@ public class McpRegistryConfiguration {
 
     @Value("${g2rain.mcp.registry.progress-notification-interval-ms:1}")
     private long progressNotificationIntervalMs;
+
+    /**
+     * {@code tools/call} 出站读超时（毫秒）；只用于回收挂住的线程与连接，须大于调用方（agent-runtime）的读超时.
+     */
+    @Value("${g2rain.mcp.registry.tool-read-timeout-ms:360000}")
+    private long toolReadTimeoutMs;
 
 
     /**
@@ -102,8 +111,14 @@ public class McpRegistryConfiguration {
     ToolRestClients toolRestClients(@LoadBalanced RestClient.Builder lbRestClientBuilder,
                                     RestClientBuilderConfigurer configurer,
                                     ToolCallInterceptor exchangeInterceptor) {
-        RestClient lb = lbRestClientBuilder.requestInterceptor(exchangeInterceptor).build();
-        RestClient direct = configurer.configure(RestClient.builder()).requestInterceptor(exchangeInterceptor).build();
+        // 只给 tools/call 出站客户端设读超时，不影响应用内其它 RestClient
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+        requestFactory.setReadTimeout(Duration.ofMillis(toolReadTimeoutMs));
+        RestClient lb = lbRestClientBuilder.requestFactory(requestFactory).requestInterceptor(exchangeInterceptor).build();
+        RestClient direct = configurer.configure(RestClient.builder())
+            .requestFactory(requestFactory)
+            .requestInterceptor(exchangeInterceptor)
+            .build();
         return new ToolRestClients(lb, direct);
     }
 
